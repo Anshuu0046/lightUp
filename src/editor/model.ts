@@ -77,6 +77,8 @@ export type Action =
   | { type: 'setAspect'; aspect: Aspect }
   | { type: 'rename'; name: string }
   | { type: 'load'; project: Project }
+  /** replaces every clip on a track (adding the track on top if it's new), e.g. regenerated captions */
+  | { type: 'replaceTrackClips'; track: Track; clips: Clip[] }
 
 export function apply(p: Project, a: Action): Project {
   switch (a.type) {
@@ -107,6 +109,10 @@ export function apply(p: Project, a: Action): Project {
     case 'setAspect': return { ...p, aspect: a.aspect }
     case 'rename': return { ...p, name: a.name }
     case 'load': return a.project
+    case 'replaceTrackClips': {
+      const tracks = p.tracks.some(t => t.id === a.track.id) ? p.tracks : [a.track, ...p.tracks]
+      return { ...p, tracks, clips: [...p.clips.filter(c => c.trackId !== a.track.id), ...a.clips] }
+    }
   }
 }
 

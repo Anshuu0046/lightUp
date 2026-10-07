@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
+import { ArrowLeft, Captions, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
 import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, textClip, trackKindFor, uid } from './model'
 import { BASE_TEXT, ensureFont } from './text'
 import { layersAt } from './render'
+import { CaptionsDialog } from './CaptionsDialog'
 import { useHistory } from './history'
 import { clearSaved, importFile, loadProject, saveProject } from './media'
 import { Player } from './player'
@@ -25,6 +26,7 @@ export default function Editor() {
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [captioning, setCaptioning] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [panel, setPanel] = useState<'media' | 'edit' | null>(null) // phones show at most one side panel, so the preview gets the room
   const fileInput = useRef<HTMLInputElement>(null)
@@ -188,6 +190,7 @@ export default function Editor() {
       <button className="ed-btn small" onClick={split} title="Split at playhead (S)"><Scissors size={14} /> Split</button>
       <button className="ed-btn small" onClick={remove} disabled={!selected} title="Delete (Del)"><Trash2 size={14} /> Delete</button>
       <button className="ed-btn small" onClick={addText} title="Add text (T)"><Type size={14} /> Text</button>
+      <button className="ed-btn small" onClick={() => setCaptioning(true)} disabled={!duration}><Captions size={14} /> Captions</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'visual' })}><Plus size={14} /> Overlay track</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'audio' })}><Plus size={14} /> Audio track</button>
       <span className="ed-spacer" />
@@ -198,6 +201,7 @@ export default function Editor() {
       onDropAsset={(id, trackId, at) => { const a = project.assets.find(x => x.id === id); if (a) place(a, trackId, at) }}
       edit={h} />
 
+    {captioning && <CaptionsDialog project={project} onClose={() => setCaptioning(false)} onApply={(track, clips) => { h.commit({ type: 'replaceTrackClips', track, clips }); setToast(`Added ${clips.length} captions. Click one to edit its words.`) }} />}
     {exporting && <ExportDialog onClose={() => setExporting(false)} project={project} />}
     {toast && <div className="ed-toast" role="status">{toast}</div>}
   </div>

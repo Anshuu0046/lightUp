@@ -12,3 +12,6 @@ desktop/native/out
 # build output
 vite.config.js
 vite.config.d.ts
+
+# speech sample for testing captions
+jfk-test.wav

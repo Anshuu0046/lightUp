@@ -131,6 +131,11 @@
 .ed-bar { height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .08); overflow: hidden }
 .ed-bar i { display: block; height: 100%; background: var(--glow); transition: width .2s }
 .ed-pct { margin-top: 8px !important; text-align: center; font-variant-numeric: tabular-nums }
+.ed-bar i.indeterminate { width: 35%; animation: slide-bar 1.3s ease-in-out infinite }
+@keyframes slide-bar { from { transform: translateX(-100%) } to { transform: translateX(290%) } }
+.ed-chips button small { display: block; font-size: 10px; font-weight: 500; opacity: .7 }
+.ed-templates button.on { border-color: var(--warm); box-shadow: 0 0 0 1px var(--warm) }
+.ed-modal { max-height: calc(100vh - 32px); overflow: auto }
 .ed-error { color: #ffb4a8 !important }
 .ed-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; padding: 10px 16px; border-radius: 999px; background: rgba(20, 20, 28, .92); border: 1px solid var(--line); font-size: 13px; max-width: calc(100% - 32px); text-align: center }
 
