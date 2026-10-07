@@ -1,4 +1,5 @@
 import { type Asset, type AssetKind, type Project, uid } from './model'
+import { waveImage } from './audio'
 
 /** The actual files behind assets. Kept outside the project document so undo history stays small. */
 const files = new Map<string, { file: Blob; url: string }>()
@@ -34,7 +35,7 @@ export async function importFile(f: File): Promise<Asset> {
   }
   if (kind === 'audio') {
     const a = new Audio(); a.preload = 'metadata'; a.src = url; await once(a, 'loadedmetadata')
-    return { ...base, duration: a.duration }
+    return { ...base, duration: a.duration, wave: await waveOf(f) }
   }
   const v = document.createElement('video'); v.preload = 'auto'; v.muted = true; v.src = url
   await once(v, 'loadedmetadata')
@@ -42,7 +43,14 @@ export async function importFile(f: File): Promise<Asset> {
   const c = document.createElement('canvas'); const s = 160 / Math.max(v.videoWidth, v.videoHeight)
   c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s)
   c.getContext('2d')!.drawImage(v, 0, 0, c.width, c.height)
-  return { ...base, duration: v.duration, width: v.videoWidth, height: v.videoHeight, hasAudio: await hasAudioTrack(f), thumb: c.toDataURL('image/jpeg', 0.7) }
+  const sound = await hasAudioTrack(f)
+  return { ...base, duration: v.duration, width: v.videoWidth, height: v.videoHeight, hasAudio: sound, thumb: c.toDataURL('image/jpeg', 0.7), wave: sound ? await waveOf(f) : undefined }
+}
+
+/** Draws the file's waveform once, for the timeline (skipped for very large files to keep import quick) */
+async function waveOf(f: Blob) {
+  if (f.size > 400e6) return undefined
+  try { return waveImage(await new OfflineAudioContext(1, 1, 44100).decodeAudioData(await f.arrayBuffer())) } catch { return undefined }
 }
 
 /** Browsers don't say whether a video has sound, so look inside the file */

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Copy, Scissors, Sparkles, Trash2 } from 'lucide-react'
 import { type Asset, type Clip, collides, type Project } from './model'
 import { type Fx, type Grade, NO_FX, NO_GRADE, PRESETS, thumbFilter } from './looks'
+import { type ClipAudio, NO_AUDIO } from './audio'
 import { BASE_TEXT, ensureFont, FONTS, TEXT_TEMPLATES, type TextAnim, type TextSpec } from './text'
 
 type Edit = {
@@ -11,7 +12,7 @@ type Edit = {
   commit: (a: { type: 'updateClip'; id: string; patch: Partial<Clip> }) => void
 }
 
-type Props = { project: Project; clip: Clip; asset?: Asset; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void }
+type Props = { project: Project; clip: Clip; asset?: Asset; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void; onDetach?: () => void }
 
 /** A slider whose whole drag is one undo step */
 function Range({ label, value, min, max, unit = '', step = 1, edit, onChange }: { label: string; value: number; min: number; max: number; unit?: string; step?: number; edit: Edit; onChange: (v: number) => void }) {
@@ -24,7 +25,7 @@ function Toggle({ label, hint, on, onChange }: { label: string; hint?: string; o
   return <label className="ed-toggle"><span>{label}{hint && <small>{hint}</small>}</span><input type="checkbox" checked={on} onChange={e => onChange(e.target.checked)} /><i /></label>
 }
 
-export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, onRemove, onError }: Props) {
+export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, onRemove, onError, onDetach }: Props) {
   const visual = !asset || asset.kind !== 'audio'
   const text = clip.text
   const tabs = text ? (['text', 'adjust', 'fx'] as const) : (['adjust', 'look', 'fx'] as const)
@@ -38,6 +39,9 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
     edit.commit({ type: 'updateClip', id: clip.id, patch })
   }
   const pct = (v: number) => Math.round(v * 100)
+  const sound = { ...NO_AUDIO, ...clip.audio }
+  const setSound = (p: Partial<ClipAudio>) => live({ audio: { ...sound, ...p } })
+  const onVisual = project.tracks.find(t => t.id === clip.trackId)?.kind === 'visual'
   const setText = (p: Partial<TextSpec>) => { if (!text) return; const next = { ...text, ...p }; live({ text: next }); if (p.font || p.weight || p.italic !== undefined) ensureFont(next).then(() => live({ text: { ...next } })) }
   const commitText = (p: Partial<TextSpec>) => { if (!text) return; const next = { ...text, ...p }; edit.commit({ type: 'updateClip', id: clip.id, patch: { text: next } }); ensureFont(next).then(() => live({ text: { ...next } })) }
 
@@ -58,7 +62,14 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
         <Range label="Opacity" value={pct(clip.opacity)} min={0} max={100} unit="%" edit={edit} onChange={v => live({ opacity: v / 100 })} />
       </>}
       {asset && asset.kind !== 'image' && <>
-        <Range label="Volume" value={pct(clip.volume)} min={0} max={100} unit="%" edit={edit} onChange={v => live({ volume: v / 100 })} />
+        {asset.hasAudio && <>
+          <Range label="Volume" value={pct(clip.volume)} min={0} max={200} unit="%" edit={edit} onChange={v => live({ volume: v / 100 })} />
+          <Range label="Sound fade in" value={sound.fadeIn} min={0} max={5} step={0.1} unit="s" edit={edit} onChange={v => setSound({ fadeIn: v })} />
+          <Range label="Sound fade out" value={sound.fadeOut} min={0} max={5} step={0.1} unit="s" edit={edit} onChange={v => setSound({ fadeOut: v })} />
+          <Toggle label="Enhance voice" hint="Clearer, fuller speech: cuts rumble, lifts presence, evens the level" on={sound.enhance} onChange={v => commit({ audio: { ...sound, enhance: v } })} />
+          {onVisual && asset.kind === 'video' && onDetach && <button className="ed-btn block" onClick={onDetach}>Detach audio to its own track</button>}
+        </>}
+        {!asset.hasAudio && asset.kind === 'video' && <p className="ed-note">This video has no sound.</p>}
         <div className="ed-field"><span>Speed</span><div className="ed-chips">{[0.25, 0.5, 1, 1.5, 2, 4].map(s => <button key={s} className={clip.speed === s ? 'on' : ''} onClick={() => commit({ speed: s })}>{s}×</button>)}</div></div>
       </>}
     </>}

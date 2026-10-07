@@ -4,6 +4,8 @@ import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newPro
 import { BASE_TEXT, ensureFont } from './text'
 import { layersAt } from './render'
 import { CaptionsDialog } from './CaptionsDialog'
+import { SoundsPanel } from './SoundsPanel'
+import { DEFAULT_DUCKING } from './audio'
 import { useHistory } from './history'
 import { clearSaved, importFile, loadProject, saveProject } from './media'
 import { Player } from './player'
@@ -28,6 +30,7 @@ export default function Editor() {
   const [exporting, setExporting] = useState(false)
   const [captioning, setCaptioning] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [library, setLibrary] = useState<'media' | 'sounds'>('media')
   const [panel, setPanel] = useState<'media' | 'edit' | null>(null) // phones show at most one side panel, so the preview gets the room
   const fileInput = useRef<HTMLInputElement>(null)
   const clip = project.clips.find(c => c.id === selected) ?? null
@@ -49,6 +52,16 @@ export default function Editor() {
     return () => p.destroy()
   }, [])
   useEffect(() => { player.current?.setProject(project) }, [project])
+
+  // music ducking: work out where people talk whenever the sound changes (off the critical path)
+  const soundKey = JSON.stringify([project.ducking, project.tracks.map(t => [t.id, t.muted]), project.clips.filter(c => project.assets.find(a => a.id === c.assetId)?.hasAudio).map(c => [c.trackId, c.start, c.in, c.out, c.speed, c.volume, c.audio])])
+  useEffect(() => {
+    if (!project.ducking?.on) { player.current?.setDucking(null); return }
+    const t = setTimeout(async () => {
+      try { const { duckingEnvelope } = await import('./exporter'); player.current?.setDucking(await duckingEnvelope(project, projectDuration(project))) } catch { /* preview just won't duck */ }
+    }, 700)
+    return () => clearTimeout(t)
+  }, [soundKey])
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t) }, [toast])
 
   const seek = useCallback((t: number) => player.current?.seek(Math.min(t, Math.max(duration, 0))), [duration])
@@ -101,6 +114,23 @@ export default function Editor() {
     const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); if (moved) h.end(); else toggle() }
     addEventListener('pointermove', move); addEventListener('pointerup', up)
   }
+  const detach = () => {
+    if (!clip) return
+    const target = project.tracks.filter(t => t.kind === 'audio').sort((a, b) => (a.id === 'a2' ? -1 : b.id === 'a2' ? 1 : 0)).find(t => !project.clips.some(c => c.trackId === t.id && c.start < clip.start + clipLength(clip) && c.start + clipLength(c) > clip.start))
+    if (!target) { setToast('No free audio track at this spot. Add an audio track first.'); return }
+    h.commit({ type: 'detachAudio', id: clip.id, trackId: target.id })
+    setToast('Audio detached. The video clip is now silent.')
+  }
+  const addSound = async (file: File) => {
+    try {
+      const asset = await importFile(file)
+      h.commit({ type: 'addAsset', asset })
+      const track = project.tracks.find(t => t.id === 'a2') ?? project.tracks.filter(t => t.kind === 'audio').slice(-1)[0]
+      const c = clipFor(asset, track.id, time)
+      h.commit({ type: 'addClip', clip: c, fit: 'near' })
+      setSelected(c.id)
+    } catch { setToast('Couldn’t add that sound.') }
+  }
   const remove = () => { if (selected) { h.commit({ type: 'removeClips', ids: [selected] }); setSelected(null) } }
   const duplicate = () => {
     if (!clip) return
@@ -149,6 +179,11 @@ export default function Editor() {
 
     <div className="ed-main">
       <aside className={`ed-side media ${panel === 'media' ? 'show' : ''}`}>
+        <div className="ed-segment two" role="tablist">
+          <button role="tab" aria-selected={library === 'media'} className={library === 'media' ? 'on' : ''} onClick={() => setLibrary('media')}>Media</button>
+          <button role="tab" aria-selected={library === 'sounds'} className={library === 'sounds' ? 'on' : ''} onClick={() => setLibrary('sounds')}>Sounds</button>
+        </div>
+        {library === 'sounds' ? <SoundsPanel ducking={project.ducking ?? DEFAULT_DUCKING} onDucking={d => h.commit({ type: 'setDucking', ducking: d })} onAdd={addSound} /> : <>
         <div className="ed-side-head"><b>Media</b><button className="ed-btn small" onClick={() => fileInput.current?.click()}><Upload size={14} /> Import</button></div>
         <input ref={fileInput} type="file" multiple accept="video/*,image/*,audio/*" hidden onChange={e => { addFiles(e.target.files ?? []); e.target.value = '' }} />
         {project.assets.length === 0
@@ -160,6 +195,7 @@ export default function Editor() {
               <button className="ed-del" onClick={() => h.commit({ type: 'removeAsset', id: a.id })} aria-label={`Remove ${a.name}`}><X size={12} /></button>
             </div>)}</div>}
         {busy && <p className="ed-busy">{busy}</p>}
+        </>}
       </aside>
 
       <section className="ed-stage">
@@ -176,7 +212,7 @@ export default function Editor() {
 
       <aside className={`ed-side inspector ${panel === 'edit' ? 'show' : ''}`}>
         {clip && (asset || clip.text) ? <>
-          <Inspector key={clip.id} project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} />
+          <Inspector key={clip.id} project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} />
         </> : <div className="ed-nothing"><b>Nothing selected</b><small>Click a clip on the timeline to adjust it, give it a look, or add effects.</small></div>}
       </aside>
     </div>

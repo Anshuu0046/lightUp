@@ -1,9 +1,10 @@
 /** The editor's document: media you imported, tracks, and clips placed on them. All times are in seconds. */
 import type { Fx, Grade } from './looks'
 import type { TextSpec } from './text'
+import type { ClipAudio, Ducking } from './audio'
 
 export type AssetKind = 'video' | 'image' | 'audio'
-export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string }
+export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string; /** waveform picture for sound */ wave?: string }
 
 export type TrackKind = 'visual' | 'audio'
 export type Track = { id: string; kind: TrackKind; name: string; muted: boolean; hidden: boolean }
@@ -30,10 +31,11 @@ export type Clip = {
   preset?: string
   /** set on text clips, which have no media file behind them */
   text?: TextSpec
+  audio?: ClipAudio
 }
 
 export type Aspect = '9:16' | '16:9' | '1:1' | '4:5'
-export type Project = { name: string; aspect: Aspect; tracks: Track[]; clips: Clip[]; assets: Asset[] }
+export type Project = { name: string; aspect: Aspect; tracks: Track[]; clips: Clip[]; assets: Asset[]; ducking?: Ducking }
 
 export const ASPECTS: Record<Aspect, [number, number]> = { '9:16': [1080, 1920], '16:9': [1920, 1080], '1:1': [1080, 1080], '4:5': [1080, 1350] }
 export const IMAGE_DEFAULT_SECONDS = 4
@@ -79,6 +81,9 @@ export type Action =
   | { type: 'load'; project: Project }
   /** replaces every clip on a track (adding the track on top if it's new), e.g. regenerated captions */
   | { type: 'replaceTrackClips'; track: Track; clips: Clip[] }
+  | { type: 'setDucking'; ducking: Ducking }
+  /** moves a video's sound onto its own clip on an audio track, so it can be edited separately */
+  | { type: 'detachAudio'; id: string; trackId: string }
 
 export function apply(p: Project, a: Action): Project {
   switch (a.type) {
@@ -109,6 +114,14 @@ export function apply(p: Project, a: Action): Project {
     case 'setAspect': return { ...p, aspect: a.aspect }
     case 'rename': return { ...p, name: a.name }
     case 'load': return a.project
+    case 'setDucking': return { ...p, ducking: a.ducking }
+    case 'detachAudio': {
+      const c = p.clips.find(x => x.id === a.id)
+      if (!c) return p
+      const sound: Clip = { ...c, id: uid(), trackId: a.trackId, opacity: 1, grade: undefined, fx: undefined, preset: undefined }
+      if (collides(p, sound)) return p
+      return { ...p, clips: [...p.clips.map(x => (x.id === c.id ? { ...x, volume: 0 } : x)), sound] }
+    }
     case 'replaceTrackClips': {
       const tracks = p.tracks.some(t => t.id === a.track.id) ? p.tracks : [a.track, ...p.tracks]
       return { ...p, tracks, clips: [...p.clips.filter(c => c.trackId !== a.track.id), ...a.clips] }

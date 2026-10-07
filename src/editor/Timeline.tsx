@@ -114,7 +114,7 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
         {project.tracks.map(t => <div key={t.id} data-track={t.id} className={`tl-track ${t.kind} ${t.hidden ? 'hidden' : ''}`}
           onPointerDown={e => { onSelect(null); scrub(e) }}
           onDragOver={e => e.dataTransfer.types.includes('application/x-lightup-asset') && e.preventDefault()} onDrop={e => drop(e, t)}>
-          {project.clips.filter(c => c.trackId === t.id).map(c => <ClipView key={c.id} clip={c} asset={project.assets.find(a => a.id === c.assetId)} pps={pps} selected={selected === c.id} onGrab={grab} />)}
+          {project.clips.filter(c => c.trackId === t.id).map(c => <ClipView key={c.id} clip={c} asset={project.assets.find(a => a.id === c.assetId)} sound={t.kind === 'audio'} pps={pps} selected={selected === c.id} onGrab={grab} />)}
         </div>)}
         <div className="tl-playhead" style={{ left: time * pps }} />
       </div>
@@ -122,7 +122,7 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
   </div>
 }
 
-function ClipView({ clip, asset, pps, selected, onGrab }: { clip: Clip; asset?: Asset; pps: number; selected: boolean; onGrab: (e: React.PointerEvent, c: Clip, m: 'move' | 'left' | 'right') => void }) {
+function ClipView({ clip, asset, sound, pps, selected, onGrab }: { clip: Clip; asset?: Asset; sound: boolean; pps: number; selected: boolean; onGrab: (e: React.PointerEvent, c: Clip, m: 'move' | 'left' | 'right') => void }) {
   if (clip.text) return <div className={`tl-clip text ${selected ? 'selected' : ''}`} style={{ left: clip.start * pps, width: Math.max(4, clipLength(clip) * pps) }} onPointerDown={e => onGrab(e, clip, 'move')} title={clip.text.content}>
     <i className="tl-trim left" onPointerDown={e => onGrab(e, clip, 'left')} />
     <span className="tl-label">T  {clip.text.content.replace(/\n/g, ' ')}</span>
@@ -130,8 +130,14 @@ function ClipView({ clip, asset, pps, selected, onGrab }: { clip: Clip; asset?: 
   </div>
   if (!asset) return null
   const style: React.CSSProperties = { left: clip.start * pps, width: Math.max(4, clipLength(clip) * pps) }
-  if (asset.thumb) style.backgroundImage = `url(${asset.thumb})`
-  return <div className={`tl-clip ${asset.kind} ${selected ? 'selected' : ''}`} style={style} onPointerDown={e => onGrab(e, clip, 'move')} title={asset.name}>
+  if (sound && asset.wave) {
+    // the whole file's waveform, stretched to the clip's speed and slid to its in-point
+    style.backgroundImage = `url(${asset.wave}), linear-gradient(180deg, #2d5a4a, #1f3f35)`
+    style.backgroundSize = `${(asset.duration * pps) / clip.speed}px 100%, 100% 100%`
+    style.backgroundPosition = `${(-clip.in * pps) / clip.speed}px 0, 0 0`
+    style.backgroundRepeat = 'no-repeat'
+  } else if (!sound && asset.thumb) style.backgroundImage = `url(${asset.thumb})`
+  return <div className={`tl-clip ${sound ? 'audio' : asset.kind} ${selected ? 'selected' : ''}`} style={style} onPointerDown={e => onGrab(e, clip, 'move')} title={asset.name}>
     <i className="tl-trim left" onPointerDown={e => onGrab(e, clip, 'left')} />
     <span className="tl-label">{clip.speed !== 1 && <b>{clip.speed}×</b>}{asset.name}</span>
     <i className="tl-trim right" onPointerDown={e => onGrab(e, clip, 'right')} />

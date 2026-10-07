@@ -2,7 +2,8 @@ import {
   ALL_FORMATS, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, getFirstEncodableAudioCodec,
   getFirstEncodableVideoCodec, Input, Mp4OutputFormat, Output, QUALITY_HIGH, WebMOutputFormat,
 } from 'mediabunny'
-import { activeAt, ASPECTS, type Clip, clipEnd, clipLength, projectDuration, type Project, sourceTime } from './model'
+import { activeAt, ASPECTS, clipEnd, clipLength, projectDuration, type Project, sourceTime } from './model'
+import { automateFades, clipChain, duckEnvelope, ENV_RATE, isMusicTrack } from './audio'
 import { fileOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { ensureFont } from './text'
@@ -92,8 +93,9 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
   }
 }
 
-/** Mixes every audible clip into one stereo track, at its place, speed and volume */
-export async function mixAudio(p: Project, duration: number): Promise<AudioBuffer> {
+/** Mixes every audible clip into one stereo track, with volume, fades, voice enhancement and music ducking */
+export async function mixAudio(p: Project, duration: number, opts: { skipDuck?: boolean } = {}): Promise<AudioBuffer> {
+  const env = !opts.skipDuck && p.ducking?.on ? await duckingEnvelope(p, duration) : null
   const ctx = new OfflineAudioContext(2, Math.max(1, Math.ceil(duration * SAMPLE_RATE)), SAMPLE_RATE)
   const decoded = new Map<string, AudioBuffer | null>()
   for (const clip of p.clips) {
@@ -106,18 +108,27 @@ export async function mixAudio(p: Project, duration: number): Promise<AudioBuffe
     }
     const buffer = decoded.get(asset.id)
     if (!buffer) continue
-    connect(ctx, buffer, clip)
+    const src = ctx.createBufferSource()
+    src.buffer = buffer
+    src.playbackRate.value = clip.speed
+    const { out, gain } = clipChain(ctx, src, clip)
+    automateFades(gain.gain, clip)
+    let node = out
+    if (env && isMusicTrack(p, clip.trackId)) {
+      const duck = ctx.createGain()
+      const curve = env.slice(Math.floor(clip.start * ENV_RATE), Math.ceil(clipEnd(clip) * ENV_RATE))
+      if (curve.length >= 2) duck.gain.setValueCurveAtTime(curve, clip.start, clipLength(clip))
+      node = node.connect(duck)
+    }
+    node.connect(ctx.destination)
+    src.start(clip.start, clip.in, clipLength(clip) * clip.speed)
+    src.stop(clipEnd(clip))
   }
   return ctx.startRendering()
 }
 
-function connect(ctx: OfflineAudioContext, buffer: AudioBuffer, clip: Clip) {
-  const src = ctx.createBufferSource()
-  src.buffer = buffer
-  src.playbackRate.value = clip.speed
-  const gain = ctx.createGain()
-  gain.gain.value = clip.volume
-  src.connect(gain).connect(ctx.destination)
-  src.start(clip.start, clip.in, clipLength(clip) * clip.speed)
-  src.stop(clipEnd(clip))
+/** Where people talk (everything but music), as a gain curve for the music */
+export async function duckingEnvelope(p: Project, duration: number): Promise<Float32Array> {
+  const speechOnly: Project = { ...p, tracks: p.tracks.map(t => (isMusicTrack(p, t.id) ? { ...t, muted: true } : t)) }
+  return duckEnvelope(await mixAudio(speechOnly, duration, { skipDuck: true }), p.ducking?.amount ?? 0.7)
 }

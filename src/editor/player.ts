@@ -1,6 +1,7 @@
 import { activeAt, ASPECTS, type Clip, clipEnd, projectDuration, type Project, sourceTime } from './model'
 import { urlOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
+import { clipChain, clipGainAt, envelopeAt, isMusicTrack, NO_AUDIO } from './audio'
 
 const PREVIEW_SCALE = 0.5 // preview at half the export size: smooth on laptops, sharp enough to judge
 
@@ -18,8 +19,14 @@ export class Player {
   private clockStart = 0
   private timeStart = 0
   private project: Project
+  private audio: AudioContext | null = null
+  private routes = new Map<string, { src: MediaElementAudioSourceNode; gain: GainNode; duck: GainNode; enhance: boolean; tail: AudioNode }>()
+  private duckEnv: Float32Array | null = null
 
   constructor(private canvas: HTMLCanvasElement, project: Project) { this.project = project }
+
+  /** the music's gain curve for ducking, or null when ducking is off */
+  setDucking(env: Float32Array | null) { this.duckEnv = env }
 
   setProject(p: Project) { this.project = p; this.prune(); if (!this.playing) this.seek(Math.min(this.time, projectDuration(p))) }
 
@@ -35,6 +42,9 @@ export class Player {
     const end = projectDuration(this.project)
     if (!end) return
     if (this.time >= end - 0.05) this.time = 0
+    // sound runs through Web Audio (needs a click to start), for volume above 100%, fades, voice enhancement and ducking
+    this.audio ??= new AudioContext()
+    this.audio.resume().catch(() => {})
     this.playing = true; this.timeStart = this.time; this.clockStart = performance.now()
     const loop = () => {
       if (!this.playing) return
@@ -49,7 +59,7 @@ export class Player {
   pause() { this.playing = false; cancelAnimationFrame(this.frame); for (const el of this.els.values()) el.pause() }
   toggle() { if (this.playing) this.pause(); else this.play() }
 
-  destroy() { this.pause(); for (const el of this.els.values()) { el.removeAttribute('src'); el.load() } this.els.clear() }
+  destroy() { this.pause(); this.audio?.close().catch(() => {}); for (const el of this.els.values()) { el.removeAttribute('src'); el.load() } this.els.clear() }
 
   draw() {
     const [W, H] = ASPECTS[this.project.aspect].map(v => Math.round(v * PREVIEW_SCALE))
@@ -98,11 +108,16 @@ export class Player {
       const asset = this.project.assets.find(a => a.id === clip.assetId)
       if (!asset || asset.kind === 'image') continue
       const track = this.project.tracks.find(tr => tr.id === clip.trackId)
-      const el = this.el(clip, asset.kind === 'video' ? 'video' : 'audio')
+      const el = this.el(clip, track?.kind === 'audio' || asset.kind === 'audio' ? 'audio' : 'video')
       const on = activeAt(clip, t) && !track?.hidden
       const want = sourceTime(clip, t)
-      el.volume = Math.min(1, Math.max(0, clip.volume))
-      el.muted = !!track?.muted || clip.volume === 0 || !asset.hasAudio
+      const route = asset.hasAudio ? this.route(clip, el) : null
+      const level = track?.muted ? 0 : clipGainAt(clip, t)
+      if (route) {
+        el.muted = false; el.volume = 1
+        route.gain.gain.value = level
+        route.duck.gain.value = isMusicTrack(this.project, clip.trackId) ? envelopeAt(this.duckEnv, t) : 1
+      } else { el.volume = Math.min(1, level); el.muted = level === 0 || !asset.hasAudio }
       el.playbackRate = clip.speed
       if (on && playing) {
         if (el.paused) { el.currentTime = want; el.play().catch(() => {}) }
@@ -117,8 +132,25 @@ export class Player {
     }
   }
 
+  /** Connects a clip's element to Web Audio once, rebuilding the chain if voice enhancement is switched */
+  private route(clip: Clip, el: HTMLMediaElement) {
+    const ctx = this.audio
+    if (!ctx) return null
+    const enhance = { ...NO_AUDIO, ...clip.audio }.enhance
+    let r = this.routes.get(clip.id)
+    if (r && r.enhance === enhance) return r
+    const src = r?.src ?? ctx.createMediaElementSource(el)
+    if (r) { r.src.disconnect(); r.tail.disconnect() }
+    const { out, gain } = clipChain(ctx, src, { ...clip, volume: 1 })
+    const duck = ctx.createGain()
+    out.connect(duck).connect(ctx.destination)
+    r = { src, gain, duck, enhance, tail: duck }
+    this.routes.set(clip.id, r)
+    return r
+  }
+
   /** Drops elements for clips that no longer exist */
   private prune() {
-    for (const [id, el] of this.els) if (!this.project.clips.some(c => c.id === id)) { el.pause(); el.removeAttribute('src'); el.load(); this.els.delete(id) }
+    for (const [id, el] of this.els) if (!this.project.clips.some(c => c.id === id)) { el.pause(); el.removeAttribute('src'); el.load(); this.els.delete(id); this.routes.get(id)?.tail.disconnect(); this.routes.delete(id) }
   }
 }

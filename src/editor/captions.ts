@@ -23,7 +23,7 @@ let worker: Worker | null = null
 
 const audible = (a: Float32Array) => a.some(v => Math.abs(v) > 0.003)
 async function speechAudio(p: Project, duration: number) {
-  const mixed = await mixAudio(p, duration)
+  const mixed = await mixAudio(p, duration, { skipDuck: true })
   const off = new OfflineAudioContext(1, Math.ceil(duration * 16000), 16000)
   const node = off.createBufferSource(); node.buffer = mixed; node.connect(off.destination); node.start()
   return (await off.startRendering()).getChannelData(0)
