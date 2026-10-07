@@ -1,3 +1,5 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+
 export type Light = 'ring' | 'window' | 'bulb' | 'rgb'
 
 /** A sculpted bust, lit the way each light would light a person (drawn, so it's sharp at any size) */
@@ -36,4 +38,37 @@ export function Bust({ light, id, color = '#9d8cff', cover }: { light: Light; id
     </g>
     {light === 'bulb' && <g className="bulb-glow"><circle cx="322" cy="430" r="80" fill={`url(#${id}-bulb)`} /><circle cx="322" cy="430" r="11" fill="#fff8ea" /></g>}
   </svg>
+}
+
+const pictures = new Map<string, string>()
+
+/** The bust as a picture. An image is rasterised once and then just moved, where inline SVG with blur filters is repainted every time it moves. */
+function useBustPicture(light: Light, color: string) {
+  const key = `${light}|${color}`
+  const host = useRef<HTMLDivElement>(null)
+  const [, bump] = useState(0)
+  useLayoutEffect(() => {
+    if (pictures.has(key)) return
+    const svg = host.current?.querySelector('svg')
+    if (!svg) return
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    pictures.set(key, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg)))
+    bump(n => n + 1)
+  }, [key])
+  const url = pictures.get(key)
+  // until the picture exists, the SVG is drawn once off-screen to make it
+  return { url, source: url ? null : <div ref={host} className="bust-src" aria-hidden><Bust light={light} id="b" color={color} /></div> }
+}
+
+/** A lit bust as an image. When the colour changes, the new picture fades in over the old one. */
+export function LitBust({ light, color = '#9d8cff', cover }: { light: Light; color?: string; cover?: boolean }) {
+  const { url, source } = useBustPicture(light, color)
+  const shown = useRef<string | undefined>(undefined)
+  const [under, setUnder] = useState<string>()
+  useEffect(() => { if (!url) return; if (shown.current && shown.current !== url) setUnder(shown.current); shown.current = url }, [url])
+  return <div className={`lit-bust ${cover ? 'cover' : ''}`}>
+    {source}
+    {under && <img className="under" src={under} alt="" draggable={false} />}
+    {url && <img key={url} className="over" src={url} alt="" draggable={false} decoding="async" onAnimationEnd={() => setUnder(undefined)} />}
+  </div>
 }

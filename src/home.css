@@ -8,9 +8,3 @@
 .swatches .dot.off { background: linear-gradient(135deg, transparent 45%, rgba(255, 255, 255, .5) 45% 55%, transparent 55%), rgba(255, 255, 255, .06) }
 .swatches .dot.cycle { background: conic-gradient(#ff1a1f, #ffd400, #1aff3a, #14d9ff, #2a5cff, #b21aff, #ff1a1f) }
 @media (hover: none) { .swatches .dot { width: 32px; height: 32px } }
-
-/* the lit bust drawn on the home and sign-in pages */
-.bust { display: block; width: 100%; height: 100%; object-fit: cover }
-.bust .tr { transition: stop-color 1.2s cubic-bezier(.16, 1, .3, 1), stroke 1.2s cubic-bezier(.16, 1, .3, 1) }
-.bulb-glow { animation: flicker 3.2s ease-in-out infinite }
-@keyframes flicker { 0%, 100% { opacity: 1 } 45% { opacity: .92 } 50% { opacity: .98 } 70% { opacity: .9 } }

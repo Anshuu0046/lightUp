@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { cloudEnabled, confirmSignUp, sendCode, setPassword, signInWithGoogle, signInWithPassword, signOut, signUp, useAccount, verifyCode } from './supabase'
 import { isNative } from '../native'
-import { Bust } from '../landing/Bust'
+import { LitBust } from '../landing/Bust'
 import './login.css'
 
 type Mode = 'signin' | 'signup'
@@ -120,7 +120,7 @@ export default function LoginPage() {
 
   return <div className="login">
     <aside className="login-art" style={{ '--lamp': LAMPS[hue] } as React.CSSProperties}>
-      <Bust light="rgb" id="login" color={LAMPS[hue]} cover />
+      <LitBust light="rgb" color={LAMPS[hue]} cover />
       <div className="login-art-copy">
         <a className="login-brand" href="#"><span className="lbrand-ring" /> Light Up</a>
         <p className="login-line">Good light used to mean a ring light, a softbox and a spare room. <em>Now it’s a click.</em></p>
