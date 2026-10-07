@@ -82,7 +82,9 @@ export async function setPassword(password: string) {
   if (error) throw new Error(friendly(error.message))
 }
 /** Google, on the website only (the desktop and Android apps can't receive the redirect back) */
-export async function signInWithGoogle() {
+export async function signInWithGoogle(next = '') {
+  // Google brings people back to the site without the page they were headed for, so remember it
+  try { if (next) sessionStorage.setItem('lightup-next', next) } catch { /* private mode */ }
   const { error } = await sb().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } })
   if (error) throw new Error(friendly(error.message))
 }

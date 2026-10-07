@@ -68,7 +68,7 @@ export function AuthForm({ start = 'signin', onDone }: { start?: Mode; onDone: (
 
     {step === 'form' && <>
       {googleWorks && <>
-        <button type="button" className="auth-google" disabled={busy} onClick={() => run(signInWithGoogle)}><GoogleMark /> Continue with Google</button>
+        <button type="button" className="auth-google" disabled={busy} onClick={() => run(() => signInWithGoogle(new URLSearchParams(location.hash.split('?')[1] ?? '').get('next') ?? ''))}><GoogleMark /> Continue with Google</button>
         <div className="auth-or"><span>or with email</span></div>
       </>}
       {mode === 'signup' && <label className="auth-field"><span>Your name</span><input value={name} onChange={e => setName(e.target.value)} autoComplete="name" placeholder="How should we call you?" /></label>}
@@ -113,6 +113,8 @@ export default function LoginPage() {
   const next = params.get('next') ?? ''
   const { session, profile, loading } = useAccount()
   const done = () => { location.hash = next ? `/${next}` : '' }
+  // already signed in and sent here to get in: carry straight on
+  useEffect(() => { if (session && next) location.replace(`#/${next}`) }, [session, next])
   const [hue, setHue] = useState(0)
   useEffect(() => { const t = setInterval(() => setHue(h => (h + 1) % LAMPS.length), 2400); return () => clearInterval(t) }, [])
 
