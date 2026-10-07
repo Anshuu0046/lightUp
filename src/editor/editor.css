@@ -183,16 +183,21 @@
   .ed-name { width: auto; flex: 1 }
   .ed-zoom { font-size: 0; gap: 0 }
   .ed-select { max-width: 92px }
-  .ed-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto }
-  .ed-stage { padding: 10px; gap: 6px }
-  .ed-side { display: none; max-height: 34vh; border: 0 !important; border-top: 1px solid var(--line) !important; padding: 10px 12px }
+  /* the preview keeps the top of the screen; the bottom area is a fixed height and shows one thing at a time */
+  .editor { --bottom: 42vh }
+  .ed-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto auto }
+  .ed-stage { order: 0; padding: 10px; gap: 6px; min-height: 0 }
+  .ed-tabs { order: 1 }
+  .ed-side { order: 2; display: none; height: var(--bottom); max-height: none; border: 0 !important; padding: 12px 14px }
   .ed-side.show { display: block }
+  .editor.sheet-open .ed-tools, .editor.sheet-open .timeline { display: none }
   .ed-assets { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px }
   .ed-empty { padding: 16px }
-  .ed-tabs { display: flex; flex: none; background: var(--panel); border-top: 1px solid var(--line) }
+  .ed-tabs { display: flex; flex: none; background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line) }
   .ed-tabs button { flex: 1; padding: 9px; font-size: 12.5px; font-weight: 700; color: var(--muted); border-bottom: 2px solid transparent }
   .ed-tabs button.on { color: var(--ink); border-bottom-color: var(--warm) }
-  .timeline { max-height: 28vh }
+  .timeline { height: calc(var(--bottom) - 47px); max-height: none }
+  .ed-tools { border-top: 0 }
   .tl-heads { width: 74px !important }
   .tl-head { padding: 0 2px 0 8px; font-size: 10.5px }
   .tl-head .tl-icon:first-of-type:not(:last-child) { display: none }

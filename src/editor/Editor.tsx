@@ -181,7 +181,7 @@ export default function Editor() {
     player.current?.pause(); await clearSaved(); h.reset(newProject()); setSelected(null); setCloudId(null); seek(0)
   }
 
-  return <div className="editor" onDragOver={e => e.dataTransfer.types.includes('Files') && e.preventDefault()} onDrop={e => { if (e.dataTransfer.files.length) { e.preventDefault(); addFiles(e.dataTransfer.files) } }}>
+  return <div className={`editor ${panel ? 'sheet-open' : ''}`} onDragOver={e => e.dataTransfer.types.includes('Files') && e.preventDefault()} onDrop={e => { if (e.dataTransfer.files.length) { e.preventDefault(); addFiles(e.dataTransfer.files) } }}>
     <header className="ed-top">
       <a className="ed-btn ghost" href="#" aria-label="Home"><ArrowLeft size={16} /></a>
       <input className="ed-name" value={project.name} onChange={e => h.live({ type: 'rename', name: e.target.value })} aria-label="Project name" />
@@ -233,17 +233,19 @@ export default function Editor() {
         </div>
       </section>
 
+      {/* phones: one bottom area, switched between the timeline, media and clip settings */}
+      <nav className="ed-tabs" role="tablist">
+        <button role="tab" aria-selected={panel === null} className={panel === null ? 'on' : ''} onClick={() => setPanel(null)}>Timeline</button>
+        <button role="tab" aria-selected={panel === 'media'} className={panel === 'media' ? 'on' : ''} onClick={() => setPanel('media')}>Media</button>
+        <button role="tab" aria-selected={panel === 'edit'} className={panel === 'edit' ? 'on' : ''} onClick={() => setPanel('edit')}>Adjust</button>
+      </nav>
+
       <aside className={`ed-side inspector ${panel === 'edit' ? 'show' : ''}`}>
         {clip && (asset || clip.text) ? <>
           <Inspector key={clip.id} project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} onRefine={() => setRefining(true)} />
-        </> : <div className="ed-nothing"><b>Nothing selected</b><small>Click a clip on the timeline to adjust it, give it a look, or add effects.</small></div>}
+        </> : <div className="ed-nothing"><b>Nothing selected</b><small>Tap a clip on the timeline, then open this tab to adjust it, give it a look, or add effects.</small></div>}
       </aside>
     </div>
-
-    <nav className="ed-tabs">
-      <button className={panel === 'media' ? 'on' : ''} onClick={() => setPanel(p => (p === 'media' ? null : 'media'))}>Media</button>
-      <button className={panel === 'edit' ? 'on' : ''} onClick={() => setPanel(p => (p === 'edit' ? null : 'edit'))}>Adjust</button>
-    </nav>
 
     <div className="ed-tools">
       <button className="ed-btn small" onClick={split} title="Split at playhead (S)"><Scissors size={14} /> Split</button>
@@ -256,7 +258,7 @@ export default function Editor() {
       <label className="ed-zoom">Zoom<input type="range" min={15} max={300} value={pps} onChange={e => setPps(+e.target.value)} /></label>
     </div>
     <Timeline project={project} time={time} pps={pps} selected={selected} playing={playing}
-      onSelect={id => { setSelected(id); if (id) setPanel('edit') }} onSeek={seek}
+      onSelect={setSelected} onSeek={seek}
       onDropAsset={(id, trackId, at) => { const a = project.assets.find(x => x.id === id); if (a) place(a, trackId, at) }}
       edit={h} />
 
