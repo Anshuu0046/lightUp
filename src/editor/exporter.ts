@@ -7,6 +7,7 @@ import { automateFades, clipChain, duckEnvelope, ENV_RATE, isMusicTrack } from '
 import { fileOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { ensureFont } from './text'
+import { loadSegmenter } from './segment'
 
 export type ExportOptions = { height: 720 | 1080; fps: 30 | 60 }
 const SAMPLE_RATE = 48000
@@ -58,6 +59,7 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
       streams.set(clip.id, new CanvasSink(track, { poolSize: 2 }).canvasesAtTimestamps(wanted))
     }
     for (const c of p.clips) if (c.text) await ensureFont(c.text)
+    if (p.clips.some(c => c.cutout)) await loadSegmenter()
     const images = new Map<string, ImageBitmap>()
     for (const a of p.assets) if (a.kind === 'image' && p.clips.some(c => c.assetId === a.id)) images.set(a.id, await createImageBitmap(fileOf(a.id)!))
 

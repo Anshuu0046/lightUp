@@ -2,6 +2,7 @@ import { activeAt, ASPECTS, type Clip, clipEnd, projectDuration, type Project, s
 import { urlOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { clipChain, clipGainAt, envelopeAt, isMusicTrack, NO_AUDIO } from './audio'
+import { loadSegmenter, segmenterReady } from './segment'
 
 const PREVIEW_SCALE = 0.5 // preview at half the export size: smooth on laptops, sharp enough to judge
 
@@ -28,7 +29,9 @@ export class Player {
   /** the music's gain curve for ducking, or null when ducking is off */
   setDucking(env: Float32Array | null) { this.duckEnv = env }
 
-  setProject(p: Project) { this.project = p; this.prune(); if (!this.playing) this.seek(Math.min(this.time, projectDuration(p))) }
+  setProject(p: Project) {
+    if (p.clips.some(c => c.cutout) && !segmenterReady()) loadSegmenter().then(() => !this.playing && this.draw()).catch(() => {})
+    this.project = p; this.prune(); if (!this.playing) this.seek(Math.min(this.time, projectDuration(p))) }
 
   seek(t: number) {
     this.time = Math.max(0, t)

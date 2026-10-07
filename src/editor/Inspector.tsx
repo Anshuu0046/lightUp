@@ -12,7 +12,7 @@ type Edit = {
   commit: (a: { type: 'updateClip'; id: string; patch: Partial<Clip> }) => void
 }
 
-type Props = { project: Project; clip: Clip; asset?: Asset; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void; onDetach?: () => void }
+type Props = { project: Project; clip: Clip; asset?: Asset; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void; onDetach?: () => void; onRefine?: () => void }
 
 /** A slider whose whole drag is one undo step */
 function Range({ label, value, min, max, unit = '', step = 1, edit, onChange }: { label: string; value: number; min: number; max: number; unit?: string; step?: number; edit: Edit; onChange: (v: number) => void }) {
@@ -25,7 +25,7 @@ function Toggle({ label, hint, on, onChange }: { label: string; hint?: string; o
   return <label className="ed-toggle"><span>{label}{hint && <small>{hint}</small>}</span><input type="checkbox" checked={on} onChange={e => onChange(e.target.checked)} /><i /></label>
 }
 
-export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, onRemove, onError, onDetach }: Props) {
+export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, onRemove, onError, onDetach, onRefine }: Props) {
   const visual = !asset || asset.kind !== 'audio'
   const text = clip.text
   const tabs = text ? (['text', 'adjust', 'fx'] as const) : (['adjust', 'look', 'fx'] as const)
@@ -60,6 +60,17 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
         <Range label="Up / down" value={pct(clip.transform.y)} min={-50} max={150} unit="%" edit={edit} onChange={v => live({ transform: { ...clip.transform, y: v / 100 } })} />
         <Range label="Rotate" value={clip.transform.rotation} min={-180} max={180} unit="°" edit={edit} onChange={v => live({ transform: { ...clip.transform, rotation: v } })} />
         <Range label="Opacity" value={pct(clip.opacity)} min={0} max={100} unit="%" edit={edit} onChange={v => live({ opacity: v / 100 })} />
+        <div className="ed-field"><span>Shape</span><div className="ed-chips">{(['none', 'rounded', 'circle'] as const).map(s => <button key={s} className={(clip.shape ?? 'none') === s ? 'on' : ''} onClick={() => commit({ shape: s })}>{s === 'none' ? 'Full' : s === 'rounded' ? 'Rounded' : 'Circle'}</button>)}
+          <button onClick={() => commit({ transform: { ...clip.transform, scale: 0.36, x: 0.74, y: 0.2 }, shape: clip.shape && clip.shape !== 'none' ? clip.shape : 'rounded' })}>Picture-in-picture</button></div></div>
+        {asset && asset.kind !== 'audio' && <>
+          <div className="ed-field"><span>Background</span><div className="ed-chips">{(['none', 'remove', 'blur'] as const).map(m => <button key={m} className={(clip.cutout?.mode ?? 'none') === m ? 'on' : ''} onClick={() => commit({ cutout: m === 'none' ? undefined : { threshold: 0.5, feather: 0.3, ...clip.cutout, mode: m } })}>{m === 'none' ? 'Keep' : m === 'remove' ? 'Remove' : 'Blur'}</button>)}</div>
+            <small className="ed-note">Finds people automatically. Put a new background on the Main track below.</small></div>
+          {clip.cutout && <>
+            <Range label="Edge" value={pct(clip.cutout.threshold)} min={15} max={85} edit={edit} onChange={v => live({ cutout: { ...clip.cutout!, threshold: v / 100 } })} />
+            <Range label="Edge softness" value={pct(clip.cutout.feather)} min={0} max={100} edit={edit} onChange={v => live({ cutout: { ...clip.cutout!, feather: v / 100 } })} />
+          </>}
+          {asset.kind === 'image' && onRefine && <button className="ed-btn block" onClick={onRefine}>Cut out by hand…</button>}
+        </>}
       </>}
       {asset && asset.kind !== 'image' && <>
         {asset.hasAudio && <>

@@ -5,6 +5,7 @@ import { BASE_TEXT, ensureFont } from './text'
 import { layersAt } from './render'
 import { CaptionsDialog } from './CaptionsDialog'
 import { SoundsPanel } from './SoundsPanel'
+import { CutoutEditor } from './CutoutEditor'
 import { DEFAULT_DUCKING } from './audio'
 import { useHistory } from './history'
 import { clearSaved, importFile, loadProject, saveProject } from './media'
@@ -29,6 +30,7 @@ export default function Editor() {
   const [busy, setBusy] = useState('')
   const [exporting, setExporting] = useState(false)
   const [captioning, setCaptioning] = useState(false)
+  const [refining, setRefining] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [library, setLibrary] = useState<'media' | 'sounds'>('media')
   const [panel, setPanel] = useState<'media' | 'edit' | null>(null) // phones show at most one side panel, so the preview gets the room
@@ -212,7 +214,7 @@ export default function Editor() {
 
       <aside className={`ed-side inspector ${panel === 'edit' ? 'show' : ''}`}>
         {clip && (asset || clip.text) ? <>
-          <Inspector key={clip.id} project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} />
+          <Inspector key={clip.id} project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} onRefine={() => setRefining(true)} />
         </> : <div className="ed-nothing"><b>Nothing selected</b><small>Click a clip on the timeline to adjust it, give it a look, or add effects.</small></div>}
       </aside>
     </div>
@@ -238,6 +240,11 @@ export default function Editor() {
       edit={h} />
 
     {captioning && <CaptionsDialog project={project} onClose={() => setCaptioning(false)} onApply={(track, clips) => { h.commit({ type: 'replaceTrackClips', track, clips }); setToast(`Added ${clips.length} captions. Click one to edit its words.`) }} />}
+    {refining && clip && asset?.kind === 'image' && <CutoutEditor asset={asset} onClose={() => setRefining(false)} onApply={async file => {
+      setRefining(false)
+      try { const cut = await importFile(file); h.commit({ type: 'addAsset', asset: cut }); h.commit({ type: 'updateClip', id: clip.id, patch: { assetId: cut.id, cutout: undefined } }); setToast('Cut-out applied. The original photo is still in your media.') }
+      catch { setToast('Couldn’t save the cut-out.') }
+    }} />}
     {exporting && <ExportDialog onClose={() => setExporting(false)} project={project} />}
     {toast && <div className="ed-toast" role="status">{toast}</div>}
   </div>

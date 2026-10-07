@@ -32,7 +32,13 @@ export type Clip = {
   /** set on text clips, which have no media file behind them */
   text?: TextSpec
   audio?: ClipAudio
+  /** remove or blur the background behind a person */
+  cutout?: Cutout
+  /** crop the clip to a shape (picture-in-picture bubbles) */
+  shape?: 'none' | 'rounded' | 'circle'
 }
+
+export type Cutout = { mode: 'remove' | 'blur'; threshold: number; feather: number }
 
 export type Aspect = '9:16' | '16:9' | '1:1' | '4:5'
 export type Project = { name: string; aspect: Aspect; tracks: Track[]; clips: Clip[]; assets: Asset[]; ducking?: Ducking }

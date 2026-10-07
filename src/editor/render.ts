@@ -1,6 +1,7 @@
 import { activeAt, type Clip, clipLength, type Project } from './model'
 import { type Fx, type Grade, NO_FX, NO_GRADE } from './looks'
 import { renderText, textMotion } from './text'
+import { personMask } from './segment'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
@@ -15,11 +16,17 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 // scratch canvases, reused every frame
 let layer: OffscreenCanvas | null = null
+let cutLayer: OffscreenCanvas | null = null
 const grainTiles: OffscreenCanvas[] = []
 function scratch(w: number, h: number) {
   if (!layer) layer = new OffscreenCanvas(w, h)
   if (layer.width !== w || layer.height !== h) { layer.width = w; layer.height = h }
   return layer
+}
+function scratch2(w: number, h: number) {
+  if (!cutLayer) cutLayer = new OffscreenCanvas(w, h)
+  if (cutLayer.width !== w || cutLayer.height !== h) { cutLayer.width = w; cutLayer.height = h }
+  return cutLayer
 }
 function grain(frame: number) {
   if (!grainTiles.length) for (let k = 0; k < 4; k++) {
@@ -83,10 +90,34 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
     picture = L
   }
 
+  // person cut-out: keep only the person (or keep everything, with the background blurred behind them)
+  let person: OffscreenCanvas | null = null
+  if (clip.cutout && fitMode === 'contain') {
+    const mask = personMask(src as TexImageSource, `${clip.id}:${t.toFixed(3)}`, clip.cutout.threshold, clip.cutout.feather)
+    if (mask) {
+      person = scratch2(w, h)
+      const pg = person.getContext('2d')!
+      pg.globalCompositeOperation = 'source-over'; pg.clearRect(0, 0, w, h)
+      pg.drawImage(picture, 0, 0, w, h)
+      pg.globalCompositeOperation = 'destination-in'; pg.drawImage(mask, 0, 0, w, h)
+      pg.globalCompositeOperation = 'source-over'
+    }
+  }
+
   g.save()
   g.globalAlpha = alpha
   g.translate(clip.transform.x * W + shakeX, clip.transform.y * H + shakeY)
   g.rotate(((clip.transform.rotation + shakeR) * Math.PI) / 180)
+  if (clip.shape && clip.shape !== 'none') {
+    g.beginPath()
+    if (clip.shape === 'circle') g.arc(0, 0, Math.min(w, h) / 2, 0, Math.PI * 2)
+    else g.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.12)
+    g.clip()
+  }
+  if (person) {
+    if (clip.cutout!.mode === 'blur') { g.filter = `blur(${(22 * scale).toFixed(1)}px)`; g.drawImage(picture, -w / 2, -h / 2, w, h); g.filter = 'none' }
+    picture = person
+  }
   const glitching = fx.glitch > 0 && hash(Math.floor(t * 12) + clip.start) < fx.glitch * 0.7
   if (glitching) {
     // a few horizontal bands knocked sideways, plus a faint colour ghost
