@@ -1,0 +1,131 @@
+.editor { position: fixed; inset: 0; display: flex; flex-direction: column; background: #0a0a0e; color: var(--ink); --row-v: 60px; --row-a: 40px; --panel: #111117; --raised: #17171f }
+.editor button:disabled { opacity: .4; cursor: default }
+
+/* ---------- top bar ---------- */
+.ed-top { flex: none; display: flex; align-items: center; gap: 8px; height: 54px; padding: 0 12px; border-bottom: 1px solid var(--line); background: var(--panel) }
+.ed-name { min-width: 0; width: 220px; padding: 7px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; font-weight: 700; font-size: 14px }
+.ed-name:hover, .ed-name:focus { border-color: var(--line-strong); background: rgba(255, 255, 255, .04); outline: none }
+.ed-select { padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--raised); font-size: 12.5px; max-width: 220px }
+.ed-spacer { flex: 1 }
+.ed-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none; white-space: nowrap; transition: background .2s }
+.ed-btn:hover:not(:disabled) { background: #20202a }
+.ed-btn.ghost { background: transparent; border-color: transparent; padding: 8px }
+.ed-btn.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .06) }
+.ed-btn.primary { background: var(--ink); color: #141218; border-color: transparent }
+.ed-btn.primary:hover:not(:disabled) { background: #fff }
+.ed-btn.danger { color: #ff8f8f }
+.ed-btn.small { padding: 6px 10px; font-size: 12px }
+.ed-btn.block { width: 100%; margin-top: 10px; padding: 12px }
+
+/* ---------- main: media | preview | inspector ---------- */
+.ed-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr) 280px }
+.ed-side { min-height: 0; overflow: auto; padding: 14px; background: var(--panel); scrollbar-width: thin }
+.ed-side.media { border-right: 1px solid var(--line) }
+.ed-side.inspector { border-left: 1px solid var(--line) }
+.ed-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px }
+.ed-side-head b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ed-empty { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 30px 14px; border-radius: 16px; border: 1.5px dashed var(--line-strong); color: var(--muted); text-align: center }
+.ed-empty b { color: var(--ink); font-size: 13px }
+.ed-empty small { font-size: 11.5px }
+.ed-assets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+.ed-asset { position: relative; cursor: grab }
+.ed-thumb { aspect-ratio: 16 / 10; border-radius: 10px; background: #1d1d26 center / cover; display: grid; place-items: center; color: var(--muted); position: relative; overflow: hidden; border: 1px solid var(--line) }
+.ed-thumb > span { position: absolute; left: 5px; bottom: 5px; display: flex; align-items: center; gap: 3px; padding: 2px 5px; border-radius: 5px; background: rgba(0, 0, 0, .6); font-size: 10px; color: #fff }
+.ed-asset small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ed-add, .ed-del { position: absolute; top: 5px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; opacity: 0; transition: opacity .2s }
+.ed-add { right: 5px; background: var(--ink); color: #141218 }
+.ed-del { left: 5px; background: rgba(0, 0, 0, .65); color: #fff }
+.ed-asset:hover .ed-add, .ed-asset:hover .ed-del, .ed-asset:focus-within .ed-add, .ed-asset:focus-within .ed-del { opacity: 1 }
+@media (hover: none) { .ed-add, .ed-del { opacity: 1 } }
+.ed-busy { color: var(--muted); font-size: 12px }
+
+.ed-stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: radial-gradient(circle at center, #15151d, #0a0a0e 70%) }
+.ed-preview { position: relative; max-width: 100%; max-height: calc(100% - 56px); height: 100%; background: #000; border-radius: 6px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, .5) }
+.ed-preview canvas { width: 100%; height: 100%; display: block; cursor: pointer }
+.ed-hint { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--muted); font-size: 13px; pointer-events: none }
+.ed-transport { display: flex; align-items: center; gap: 10px }
+.ed-play { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #141218 }
+.ed-time { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 600; min-width: 120px }
+.ed-time small { color: var(--faint); font-weight: 500 }
+
+.ed-field { display: block; margin-bottom: 14px }
+.ed-field > span { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 6px }
+.ed-field b { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums }
+.ed-field input[type=range] { width: 100% }
+.editor input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: rgba(255, 255, 255, .14) }
+.editor input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: #fff }
+.ed-chips { display: flex; flex-wrap: wrap; gap: 6px }
+.ed-chips button { padding: 6px 10px; border-radius: 8px; background: var(--raised); border: 1px solid var(--line); font-size: 12px; font-weight: 600 }
+.ed-chips button.on { background: var(--ink); color: #141218 }
+.ed-chips.big button { flex: 1; padding: 11px }
+.ed-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px }
+.ed-nothing { display: flex; flex-direction: column; gap: 6px; padding: 20px 4px; color: var(--muted); font-size: 12.5px }
+.ed-nothing b { color: var(--ink) }
+
+.ed-tabs { display: none }
+
+/* ---------- timeline ---------- */
+.ed-tools { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel) }
+.ed-zoom { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted) }
+.ed-zoom input { width: 120px }
+.timeline { flex: none; display: flex; max-height: 42vh; overflow-y: auto; background: #0d0d12; border-top: 1px solid var(--line); user-select: none; -webkit-user-select: none }
+.tl-heads { flex: none; background: var(--panel); border-right: 1px solid var(--line); position: sticky; left: 0; z-index: 3 }
+.tl-ruler-spacer { height: 26px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--warm); border-bottom: 1px solid var(--line) }
+.tl-head { display: flex; align-items: center; gap: 2px; padding: 0 6px 0 10px; border-bottom: 1px solid var(--line); font-size: 11.5px; font-weight: 600; color: var(--muted) }
+.tl-head span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.tl-head.visual, .tl-track.visual { height: var(--row-v) }
+.tl-head.audio, .tl-track.audio { height: var(--row-a) }
+.tl-icon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--muted) }
+.tl-icon:hover { background: rgba(255, 255, 255, .06); color: var(--ink) }
+.tl-scroll { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin }
+.tl-canvas { position: relative }
+.tl-ruler { position: sticky; top: 0; z-index: 2; height: 26px; border-bottom: 1px solid var(--line); background: #0d0d12; cursor: ew-resize }
+.tl-ruler span { position: absolute; top: 0; height: 100%; padding: 6px 0 0 4px; border-left: 1px solid rgba(255, 255, 255, .12); font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums }
+.tl-track { position: relative; border-bottom: 1px solid rgba(255, 255, 255, .05) }
+.tl-track.hidden { opacity: .35 }
+.tl-clip { position: absolute; top: 5px; bottom: 5px; border-radius: 8px; overflow: hidden; cursor: grab; background: #2b2b3a 0 0 / auto 100% repeat-x; border: 1.5px solid rgba(255, 255, 255, .12); box-shadow: inset 0 0 0 100vmax rgba(10, 10, 16, .25) }
+.tl-clip.audio { background: linear-gradient(180deg, #2d5a4a, #1f3f35); box-shadow: none; background-image: repeating-linear-gradient(90deg, rgba(160, 255, 210, .35) 0 2px, transparent 2px 5px), linear-gradient(180deg, #2d5a4a, #1f3f35); background-size: 100% 56%, 100% 100%; background-position: 0 50%, 0 0; background-repeat: no-repeat }
+.tl-clip.selected { border-color: var(--warm); box-shadow: 0 0 0 1px var(--warm), inset 0 0 0 100vmax rgba(10, 10, 16, .1) }
+.tl-label { position: absolute; left: 10px; right: 10px; top: 4px; font-size: 10.5px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none }
+.tl-label b { margin-right: 5px; padding: 0 4px; border-radius: 4px; background: var(--warm); color: #141218; text-shadow: none }
+.tl-trim { position: absolute; top: 0; bottom: 0; width: 9px; cursor: ew-resize; z-index: 1 }
+.tl-trim.left { left: 0 } .tl-trim.right { right: 0 }
+.tl-clip.selected .tl-trim { background: var(--warm) }
+.tl-clip.selected .tl-trim::after { content: ''; position: absolute; left: 3px; top: 35%; bottom: 35%; width: 3px; border-radius: 2px; background: #141218 }
+.tl-playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--warm); pointer-events: none; z-index: 2; box-shadow: 0 0 8px rgba(255, 193, 135, .6) }
+.tl-playhead::before { content: ''; position: absolute; top: 0; left: -6px; border: 7px solid transparent; border-top: 9px solid var(--warm); border-bottom: 0 }
+
+/* ---------- dialogs ---------- */
+.ed-modal-back { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .6); backdrop-filter: blur(6px) }
+.ed-modal { width: min(400px, 100%); padding: 22px; border-radius: 22px; background: #15151c; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .6) }
+.ed-modal h2 { margin: 0 0 6px; font: 400 30px/1.1 var(--serif) }
+.ed-modal p { color: var(--muted); font-size: 13px; margin: 0 0 14px }
+.ed-bar { height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .08); overflow: hidden }
+.ed-bar i { display: block; height: 100%; background: var(--glow); transition: width .2s }
+.ed-pct { margin-top: 8px !important; text-align: center; font-variant-numeric: tabular-nums }
+.ed-error { color: #ffb4a8 !important }
+.ed-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; padding: 10px 16px; border-radius: 999px; background: rgba(20, 20, 28, .92); border: 1px solid var(--line); font-size: 13px; max-width: calc(100% - 32px); text-align: center }
+
+/* ---------- phones and narrow windows: preview on top, one side panel at a time, timeline below ---------- */
+@media (max-width: 900px) {
+  .editor { --row-v: 50px; --row-a: 34px }
+  .wide-only { display: none }
+  .ed-name { width: auto; flex: 1 }
+  .ed-select { max-width: 92px }
+  .ed-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto }
+  .ed-stage { padding: 10px; gap: 6px }
+  .ed-side { display: none; max-height: 34vh; border: 0 !important; border-top: 1px solid var(--line) !important; padding: 10px 12px }
+  .ed-side.show { display: block }
+  .ed-assets { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px }
+  .ed-empty { padding: 16px }
+  .ed-tabs { display: flex; flex: none; background: var(--panel); border-top: 1px solid var(--line) }
+  .ed-tabs button { flex: 1; padding: 9px; font-size: 12.5px; font-weight: 700; color: var(--muted); border-bottom: 2px solid transparent }
+  .ed-tabs button.on { color: var(--ink); border-bottom-color: var(--warm) }
+  .timeline { max-height: 28vh }
+  .tl-heads { width: 74px !important }
+  .tl-head { padding: 0 2px 0 8px; font-size: 10.5px }
+  .tl-head .tl-icon:first-of-type:not(:last-child) { display: none }
+  .ed-zoom input { width: 80px }
+  .ed-time { min-width: 0 }
+  .ed-preview { max-height: calc(100% - 50px) }
+}

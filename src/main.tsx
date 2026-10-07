@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/manrope'
 import '@fontsource/instrument-serif/400.css'
 import '@fontsource/instrument-serif/400-italic.css'
-import LiveApp from './live/LiveApp'
+import App from './App'
 
 /** If anything in the app throws, show a way out instead of a black screen */
 class Guard extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -20,4 +20,4 @@ class Guard extends Component<{ children: ReactNode }, { failed: boolean }> {
   }
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode><Guard><LiveApp /></Guard></StrictMode>)
+createRoot(document.getElementById('root')!).render(<StrictMode><Guard><App /></Guard></StrictMode>)

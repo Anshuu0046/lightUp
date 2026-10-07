@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, Circle, Maximize2, Square, Video, X } from 'lucide-react'
+import { Camera, Circle, House, Maximize2, Square, Video, X } from 'lucide-react'
 import { createFaceTracker, createHandTracker, type Face } from '../faceTracker'
 import { startRecording, takePhoto } from '../recorder'
 import { bridge, startVirtualCamera } from '../virtualCamera'
@@ -20,8 +20,8 @@ function loadLook(): Look {
 
 /** Opens a real camera, never our own virtual one (that would feed the picture back into itself) */
 async function openCamera(deviceId?: string): Promise<MediaStream> {
-  // dev only: #video=/clip.mp4 stands in for a webcam so lighting can be tuned without one
-  const clip = import.meta.env.DEV && new URLSearchParams(location.hash.slice(1)).get('video')
+  // dev only: #/live?video=/clip.mp4 stands in for a webcam so lighting can be tuned without one
+  const clip = import.meta.env.DEV && new URLSearchParams(location.hash.split('?')[1] ?? '').get('video')
   if (clip === 'blank') { const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const g = c.getContext('2d')!; g.fillStyle = '#3a3542'; g.fillRect(0, 0, 1280, 720); return c.captureStream(1) }
   if (clip) {
     const v = document.createElement('video'); v.src = clip; v.muted = true; v.loop = true; await v.play(); Object.assign(window, { __clip: v })
@@ -210,7 +210,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     <aside className={`panel ${open ? 'open' : ''}`} aria-hidden={!open}>
       <header>
         <div className="brand"><span className="brand-ring" /> Light Up</div>
-        <button className="icon" onClick={() => setOpen(false)} aria-label="Close settings"><X size={16} /></button>
+        <span className="header-actions"><a className="icon" href="#" aria-label="Home" title="Home"><House size={15} /></a><button className="icon" onClick={() => setOpen(false)} aria-label="Close settings"><X size={16} /></button></span>
       </header>
 
       <div className="styles" role="radiogroup" aria-label="Light">
