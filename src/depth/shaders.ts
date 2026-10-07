@@ -56,6 +56,11 @@ const EDGE_SPATIAL_SIGMA = 3.2;
 const SUBSURFACE_REACH = 0.075;
 const SUBSURFACE_GAIN = 0.9;
 
+/** soft skin: average nearby pixels that look alike, so pores and blemishes soften but edges (eyes, lips, beard) stay sharp */
+const SMOOTH_RING = [0, 1, 2, 3, 4, 5, 6, 7] as const;
+const SMOOTH_RADIUS = 0.0045;
+const SMOOTH_SIMILARITY = 0.07;
+
 const BULB_WORLD_RADIUS = 0.05;
 const BULB_CAMERA_Z = 2;
 const BULB_REFERENCE_Z = 0.42;
@@ -110,6 +115,8 @@ export const RelightParams = d.struct({
   aspect: d.f32,
   /** How far light carries before fading: small for a light close to the face, large for a big distant source */
   falloff: d.f32,
+  /** soft skin, 0-1 */
+  skinSoften: d.f32,
 });
 
 export const rangeStabilityLayout = tgpu.bindGroupLayout({
@@ -495,7 +502,27 @@ export const relightFragment = tgpu.fragmentFn({
   }
   const occlusion = std.mix(d.f32(1), surface.z, relightLayout.$.params.occlusion);
 
-  const albedo = std.pow(cameraColor, d.vec3f(GAMMA));
+  // soft skin, only where the picture looks like skin and is near the camera
+  let skinColor = d.vec3f(cameraColor);
+  if (relightLayout.$.params.skinSoften > 0) {
+    let sum = d.vec3f(cameraColor);
+    let total = d.f32(1);
+    for (const k of tgpu.unroll(SMOOTH_RING)) {
+      const angle = d.f32(k) * 0.785398;
+      for (const ring of tgpu.unroll([1, 2] as const)) {
+        const offset = d.vec2f(std.cos(angle), std.sin(angle)) * (SMOOTH_RADIUS * d.f32(ring)) / d.vec2f(relightLayout.$.params.aspect, 1);
+        const tap = std.saturate(std.textureSampleBaseClampToEdge(relightFrameLayout.$.frame, relightLayout.$.sampler, cameraUvAt(uv + offset)).rgb);
+        const gap = tap - cameraColor;
+        const w = std.exp(0 - std.dot(gap, gap) / (SMOOTH_SIMILARITY * SMOOTH_SIMILARITY));
+        sum += tap * w;
+        total += w;
+      }
+    }
+    const skinLike = std.saturate((cameraColor.x - cameraColor.z) * 5 - 0.15) * std.smoothstep(0.12, 0.3, cameraColor.x);
+    const near = std.smoothstep(0.35, 0.7, surface.w);
+    skinColor = std.mix(cameraColor, sum / total, relightLayout.$.params.skinSoften * skinLike * near);
+  }
+  const albedo = std.pow(skinColor, d.vec3f(GAMMA));
   const tint = d.vec3f(relightLayout.$.params.lightColor.rgb);
   const halfDirection = std.normalize(lightDirection + d.vec3f(0, 0, 1));
   const lobe = std.pow(std.saturate(std.dot(normal, halfDirection)), d.f32(SPECULAR_POWER));

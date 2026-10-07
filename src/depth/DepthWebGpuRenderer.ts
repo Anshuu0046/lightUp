@@ -77,6 +77,7 @@ interface RelightingState {
   readonly mode: number;
   readonly bulb: number;
   readonly falloff: number;
+  readonly skinSoften: number;
 }
 
 type RelightingSettings = Partial<RelightingState>;
@@ -95,6 +96,7 @@ export const defaultRelightingSettings: RelightingState = {
   mode: RelightMode.RELIT,
   bulb: 1,
   falloff: 0.85,
+  skinSoften: 0,
 };
 
 function sourceAspect(source: DepthCameraFrame['source'], swapAxes: boolean): number {
@@ -328,6 +330,7 @@ export class DepthRelightingRenderer {
       bulb: this.#settings.bulb,
       aspect: this.#aspect,
       falloff: this.#settings.falloff,
+      skinSoften: this.#settings.skinSoften,
     });
   }
 }

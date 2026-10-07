@@ -167,7 +167,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
         }
         // a real filament never burns perfectly still: a 2-3% shimmer
         const shimmer = bulbMode ? 1 + 0.018 * Math.sin(now * 0.0131) + 0.012 * Math.sin(now * 0.0377 + 1.3) : 1
-        runtime?.draw(v, { lightPosition: [rig.x, rig.y], lightZ: rig.z, falloff: rig.falloff, lightColor: [rig.r + (1 - rig.r) * corr.whiten, rig.g + (1 - rig.g) * corr.whiten, rig.b + (1 - rig.b) * corr.whiten], intensity: rig.intensity * corr.gain * shimmer, exposure: rig.exposure * (lookRef.current.style === 'bulb' ? 1 : Math.min(2.2, Math.max(0.4, Math.sqrt(corr.gain)))), relief: rig.relief, specular: rig.specular, shadow: rig.shadow, occlusion: rig.occlusion, bulb: rig.bulb, mirror: false }, frameNo % depthEvery !== 0)
+        runtime?.draw(v, { lightPosition: [rig.x, rig.y], lightZ: rig.z, falloff: rig.falloff, lightColor: [rig.r + (1 - rig.r) * corr.whiten, rig.g + (1 - rig.g) * corr.whiten, rig.b + (1 - rig.b) * corr.whiten], intensity: rig.intensity * corr.gain * shimmer, exposure: rig.exposure * (lookRef.current.style === 'bulb' ? 1 : Math.min(2.2, Math.max(0.4, Math.sqrt(corr.gain)))), relief: rig.relief, specular: rig.specular, shadow: rig.shadow, occlusion: rig.occlusion, bulb: rig.bulb, skinSoften: rig.smooth, mirror: false }, frameNo % depthEvery !== 0)
         corr = runtime ? auto.update(c, v, found ? face : undefined, lookRef.current.style, lookRef.current.brightness, lookRef.current.auto) : NEUTRAL
         const W = Math.min(1280, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth)
         if (o.width !== W || o.height !== H) { o.width = W; o.height = H }
@@ -242,6 +242,8 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
           <span className="ends"><small>Blue</small><small>Daylight</small><small>Warm</small></span></label>
         <label className="switch"><span>Auto light<small>Keeps your face evenly lit in any room</small></span>
           <input type="checkbox" checked={look.auto} onChange={e => set({ auto: e.target.checked })} /><i /></label>
+        <label className="switch"><span>Soft skin<small>The smooth, even skin a real ring light gives</small></span>
+          <input type="checkbox" checked={look.softSkin} onChange={e => set({ softSkin: e.target.checked })} /><i /></label>
         <label className="switch"><span>Eye catchlights<small>The light’s reflection in your eyes</small></span>
           <input type="checkbox" checked={look.catchlight} onChange={e => set({ catchlight: e.target.checked })} /><i /></label>
       </fieldset>

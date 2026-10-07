@@ -9,19 +9,35 @@ const SIZE = 24
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 type Sample = { y: number; r: number; g: number; b: number; clipped: number }
+type Box = [number, number, number, number]
 
-/** Mean brightness, mean colour and share of blown-out pixels in a 24x24 look at the face */
-function sample(ctx: CanvasRenderingContext2D, src: CanvasImageSource, box: [number, number, number, number]): Sample {
-  ctx.drawImage(src, box[0], box[1], box[2], box[3], 0, 0, SIZE, SIZE)
-  const px = ctx.getImageData(0, 0, SIZE, SIZE).data
-  let r = 0, g = 0, b = 0, clipped = 0
-  const n = SIZE * SIZE
-  for (let i = 0; i < px.length; i += 4) {
-    r += px[i]; g += px[i + 1]; b += px[i + 2]
-    if (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2] > 247) clipped++
+/**
+ * Brightness and colour of the skin in a small look at the face. Skin is picked from the unlit camera picture
+ * (warm, mid-bright pixels), so a beard, eyebrows or hair don't drag the reading down; the median ignores stray highlights.
+ */
+function measure(litCtx: CanvasRenderingContext2D, camCtx: CanvasRenderingContext2D, lit: CanvasImageSource, cam: CanvasImageSource, litBox: Box, camBox: Box): { lit: Sample; cam: Sample } {
+  litCtx.drawImage(lit, ...litBox, 0, 0, SIZE, SIZE)
+  camCtx.drawImage(cam, ...camBox, 0, 0, SIZE, SIZE)
+  const L = litCtx.getImageData(0, 0, SIZE, SIZE).data, C = camCtx.getImageData(0, 0, SIZE, SIZE).data
+  const luma = (d: Uint8ClampedArray, i: number) => (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255
+  let picks: number[] = []
+  for (let i = 0; i < C.length; i += 4) {
+    const r = C[i], g = C[i + 1], b = C[i + 2], y = luma(C, i)
+    if (r > g && g >= b * 0.85 && r - b > 14 && y > 0.16 && y < 0.97) picks.push(i)
   }
-  r /= n * 255; g /= n * 255; b /= n * 255
-  return { y: 0.2126 * r + 0.7152 * g + 0.0722 * b, r, g, b, clipped: clipped / n }
+  // not enough skin found (unusual light, or the face is mostly covered): use the middle of the brightness range
+  if (picks.length < SIZE * SIZE * 0.12) {
+    const all = Array.from({ length: SIZE * SIZE }, (_, k) => k * 4).sort((a, b) => luma(C, a) - luma(C, b))
+    picks = all.slice(Math.floor(all.length * 0.3), Math.floor(all.length * 0.9))
+  }
+  const read = (d: Uint8ClampedArray): Sample => {
+    const ys = picks.map(i => luma(d, i)).sort((a, b) => a - b)
+    let r = 0, g = 0, b = 0, clipped = 0
+    for (const i of picks) { r += d[i]; g += d[i + 1]; b += d[i + 2]; if (luma(d, i) > 0.97) clipped++ }
+    const n = picks.length * 255
+    return { y: ys[Math.floor(ys.length / 2)], r: r / n, g: g / n, b: b / n, clipped: clipped / picks.length }
+  }
+  return { lit: read(L), cam: read(C) }
 }
 
 /**
@@ -53,12 +69,12 @@ export class AutoLight {
     if (style === 'natural' || !face) {
       this.want = { ...NEUTRAL }
     } else if (++this.frame % 4 === 0) {
-      // the cheeks, nose and forehead: the centre of the face, away from hair, beard and background
-      const halfW = face.w * 0.2, halfH = (face.w * video.videoWidth * 1.3 / video.videoHeight) * 0.2
-      const box = (w: number, h: number): [number, number, number, number] => [clamp(face.x - halfW, 0, 1 - 2 * halfW) * w, clamp(face.y - halfH, 0, 1 - 2 * halfH) * h, 2 * halfW * w, 2 * halfH * h]
+      // forehead and upper cheeks: the skin a ring light lands on, above any beard
+      const halfW = face.w * 0.27, faceH = face.w * video.videoWidth * 1.3 / video.videoHeight
+      const top = clamp(face.y - faceH * 0.34, 0, 1), bottom = clamp(face.y + faceH * 0.04, 0, 1)
+      const box = (w: number, h: number): Box => [clamp(face.x - halfW, 0, 1 - 2 * halfW) * w, top * h, 2 * halfW * w, Math.max(1, (bottom - top) * h)]
       try {
-        const lit_ = sample(this.ctx, lit, box(lit.width, lit.height))
-        const cam = sample(this.camCtx, video, box(video.videoWidth, video.videoHeight))
+        const { lit: lit_, cam } = measure(this.ctx, this.camCtx, lit, video, box(lit.width, lit.height), box(video.videoWidth, video.videoHeight))
         this.last = { lit: lit_, cam }
         this.want = active ? this.decide(lit_, cam, style, brightness) : { ...NEUTRAL }
       } catch { this.want = { ...NEUTRAL } }
@@ -72,7 +88,8 @@ export class AutoLight {
 
   private decide(lit: Sample, cam: Sample, style: Style, brightness: number): Correction {
     // the user's brightness slider still matters: it moves the target, it doesn't fight the controller
-    const target = style === 'bulb' ? 0.5 : (style === 'ring' ? 0.58 : 0.5) + (brightness - 55) * 0.0035
+    // skin, not the whole face: a flattering exposure for skin sits a little above the middle
+    const target = style === 'bulb' ? 0.55 : (style === 'ring' ? 0.62 : 0.55) + (brightness - 55) * 0.0035
     let gain = this.out.gain // relative to what is applied now, so slow smoothing can never wind the correction up
     // the light is applied on top of ambient, so a modest exponent converges without overshoot
     gain *= Math.pow(target / Math.max(lit.y, 0.04), 0.45)
