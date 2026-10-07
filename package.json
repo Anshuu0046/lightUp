@@ -1,0 +1,95 @@
+{
+  "name": "light-up",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "desktop": "electron .",
+    "native": "cd desktop/native && build.bat",
+    "dist": "npm run build && npm run native && electron-builder --win --x64 -c.electronDist=node_modules/electron/dist -c.electronVersion=44.6.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@mediapipe/tasks-vision": "^1.1.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "@webgpu/types": "^0.1.72",
+    "electron": "44.6.0",
+    "electron-builder": "26.15.3",
+    "lucide-react": "^1.33.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typegpu": "0.12.4",
+    "typescript": "^7.0.2",
+    "unplugin-typegpu": "0.12.3",
+    "vite": "^8.2.2"
+  },
+  "main": "desktop/main.cjs",
+  "productName": "Light Up",
+  "description": "Realistic ring light, window light and hand-held bulb for your webcam, with a virtual camera for Zoom, Teams and OBS.",
+  "author": "Light Up",
+  "license": "UNLICENSED",
+  "build": {
+    "appId": "app.lightup.desktop",
+    "productName": "Light Up",
+    "copyright": "Light Up",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "desktop/main.cjs",
+      "desktop/preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/native/out/lightup_vcam.dll",
+        "to": "lightup_vcam.dll"
+      },
+      {
+        "from": "desktop/native/out/lightup_setup.exe",
+        "to": "lightup_setup.exe"
+      },
+      {
+        "from": "desktop/native/out/lightup_feed.exe",
+        "to": "lightup_feed.exe"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "THIRD_PARTY_NOTICES.md"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Light Up",
+      "include": "build/installer.nsh",
+      "deleteAppDataOnUninstall": true
+    }
+  }
+}

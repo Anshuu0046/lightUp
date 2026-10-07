@@ -1,0 +1,14 @@
+.vercel
+
+dist
+node_modules
+*.tsbuildinfo
+release
+desktop/native/out
+
+# not ours to publish: reference clip used for local testing
+*.mp4
+
+# build output
+vite.config.js
+vite.config.d.ts
