@@ -1,4 +1,5 @@
 import { release, watch } from './capture'
+import { saveFile } from './native'
 
 /** Composites the lit picture (or the plain camera without WebGPU) and the catchlights into one canvas, for recording, photos and the virtual camera. */
 export function compositor(stage: HTMLElement) {
@@ -28,10 +29,6 @@ export function compositor(stage: HTMLElement) {
 }
 
 const stamp = () => new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)
-function save(blob: Blob, name: string) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000)
-}
 
 /** The first draw only starts the copying, so give the renderer a moment to produce a frame */
 async function firstFrame(c: ReturnType<typeof compositor>) {
@@ -44,7 +41,9 @@ export async function takePhoto(stage: HTMLElement) {
   if (!await firstFrame(c)) { c.done(); throw new Error('Wait for the camera to finish loading.') }
   c.draw()
   c.done()
-  c.out.toBlob(b => b && save(b, `light-up-${stamp()}.png`), 'image/png')
+  const blob = await new Promise<Blob | null>(r => c.out.toBlob(r, 'image/png'))
+  if (!blob) throw new Error('Couldn’t capture the photo.')
+  return saveFile(blob, `light-up-${stamp()}.png`)
 }
 
 const MIMES = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
@@ -68,10 +67,10 @@ export async function startRecording(stage: HTMLElement) {
   pump(); rec.start(1000)
   return {
     hasAudio: !!mic?.getAudioTracks().length,
-    stop: () => new Promise<void>(done => {
+    stop: () => new Promise<string>(done => {
       rec.onstop = () => {
         cancelAnimationFrame(frame); c.done(); stream.getTracks().forEach(t => t.stop()); mic?.getTracks().forEach(t => t.stop())
-        save(new Blob(chunks, { type: mime.split(';')[0] }), `light-up-${stamp()}.${mime.startsWith('video/mp4') ? 'mp4' : 'webm'}`); done()
+        saveFile(new Blob(chunks, { type: mime.split(';')[0] }), `light-up-${stamp()}.${mime.startsWith('video/mp4') ? 'mp4' : 'webm'}`).then(done, () => done('your device'))
       }
       rec.stop()
     }),

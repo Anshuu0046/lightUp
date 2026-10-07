@@ -1,4 +1,4 @@
-.ad { position: fixed; inset: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); background: #0a0a0e; color: var(--ink) }
+.ad { position: fixed; inset: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: grid; grid-template-columns: 230px minmax(0, 1fr); background: #0a0a0e; color: var(--ink) }
 .ad-nav { display: flex; flex-direction: column; gap: 2px; padding: 18px 12px; border-right: 1px solid var(--line); background: #111117 }
 .ad-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; margin-bottom: 18px }
 .ad-title { font: 400 30px/1 var(--serif); margin: 0 8px 14px }

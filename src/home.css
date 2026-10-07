@@ -1,4 +1,4 @@
-.home { position: relative; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 16px; overflow: auto }
+.home { position: relative; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: calc(48px + env(safe-area-inset-top)) 16px calc(48px + env(safe-area-inset-bottom)); overflow: auto }
 .home-glow { position: fixed; inset: -20%; background: radial-gradient(38% 32% at 50% 30%, rgba(255, 193, 135, .14), transparent 70%), radial-gradient(30% 30% at 22% 75%, rgba(157, 140, 255, .12), transparent 70%), radial-gradient(30% 30% at 80% 70%, rgba(255, 143, 163, .10), transparent 70%); pointer-events: none }
 .home-brand { position: relative; display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .01em; margin-bottom: 36px }
 .home-ring { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #fff4e6; box-shadow: 0 0 12px rgba(255, 214, 170, .8) }
@@ -14,6 +14,6 @@
 .choice-art { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; color: #141218 }
 .choice-art.art-live { background: linear-gradient(135deg, #ffe2bd, #ffb76b); box-shadow: 0 8px 26px rgba(255, 170, 90, .35) }
 .choice-art.art-edit { background: linear-gradient(135deg, #e4ddff, #9d8cff); box-shadow: 0 8px 26px rgba(157, 140, 255, .35) }
-.home-account { position: absolute; top: 18px; right: 18px; z-index: 2 }
+.home-account { position: absolute; top: calc(18px + env(safe-area-inset-top)); right: 18px; z-index: 2 }
 .home-loading { height: 100%; display: grid; place-items: center; color: var(--muted) }
 @media (max-width: 640px) { .home-choices { grid-template-columns: 1fr } .home-brand { margin-bottom: 24px } }

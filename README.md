@@ -27,6 +27,20 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 - **Stickers & GIFs:** GIPHY search (needs a free API key), your own uploaded stickers, and a shared library curated by admins. Animated GIFs and WebPs play on the timeline.
 - **Export:** MP4 in 9:16, 16:9, 1:1 or 4:5, at 720p or 1080p, rendered frame by frame.
 
+## Android app
+
+`release/LightUp-<version>.apk` installs on Android 7+ (allow “Install unknown apps” for your browser or file manager). Everything is bundled, so it works offline; exports, photos and recordings save to **Documents › Light Up** and open the share sheet (Instagram, YouTube, WhatsApp, Drive, Gallery). Realistic live lighting needs WebGPU in Android System WebView, which many phones don’t have yet; the app falls back to the plain camera and says so. The editor works everywhere. The Windows virtual camera is desktop-only.
+
+Building it needs Java 21 and the Android SDK (platform 36, build-tools 36):
+
+```bash
+set JAVA_HOME=C:\path	o\jdk-21
+set ANDROID_HOME=C:\path	ondroid-sdk
+npm run apk          # signed release APK in android/app/build/outputs/apk/release/
+```
+
+Release signing reads `android/keystore.properties` (not in git), which points at your `.jks` key. **Back up that key and its password**: every future update must be signed with the same key, or phones will refuse to install it. If Gradle fails with “Unable to establish loopback connection”, set `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=C:\shortpath` (a folder without spaces).
+
 ## Accounts and admin panel (optional)
 
 Without setup, everything works on the device. To add sign-in, cloud projects, the shared sticker library and the admin panel:

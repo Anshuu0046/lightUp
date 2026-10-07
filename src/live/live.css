@@ -52,7 +52,7 @@ kbd { font: 600 10px/1 var(--sans); padding: 3px 5px; border-radius: 5px; border
 
 .pill { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(20px) saturate(140%); font-size: 13px; color: var(--ink); max-width: calc(100% - 32px); z-index: 5; animation: rise .4s var(--ease) }
 .pill.center { top: 50%; transform: translate(-50%, -50%) }
-.pill.top { top: 20px }
+.pill.top { top: calc(20px + env(safe-area-inset-top)) }
 .pill.bottom { bottom: 28px }
 .live-stage.placeable { cursor: crosshair }
 @keyframes rise { from { opacity: 0; margin-top: 8px } }
@@ -66,7 +66,7 @@ kbd { font: 600 10px/1 var(--sans); padding: 3px 5px; border-radius: 5px; border
 .badge.on i { background: #48d597 }
 @keyframes pulse { 50% { opacity: .3 } }
 
-.fab { position: absolute; right: 24px; bottom: 24px; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--glass); border: 1px solid var(--line-strong); backdrop-filter: blur(20px); box-shadow: 0 10px 30px rgba(0, 0, 0, .4); z-index: 6; transition: opacity .5s var(--ease), transform .3s var(--ease) }
+.fab { position: absolute; right: 24px; bottom: calc(24px + env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--glass); border: 1px solid var(--line-strong); backdrop-filter: blur(20px); box-shadow: 0 10px 30px rgba(0, 0, 0, .4); z-index: 6; transition: opacity .5s var(--ease), transform .3s var(--ease) }
 .fab:hover { transform: scale(1.06) }
 .fab-ring { width: 20px; height: 20px; border-radius: 50%; border: 3px solid #fff4e6; box-shadow: 0 0 10px rgba(255, 214, 170, .8), inset 0 0 6px rgba(255, 214, 170, .6) }
 .fab.hidden, .live.idle .fab { opacity: 0; pointer-events: none; transform: scale(.9) }

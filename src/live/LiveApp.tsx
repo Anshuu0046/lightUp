@@ -178,7 +178,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     setLive(() => stop); setToast('Live: choose “Light Up Camera” in Zoom, Teams or OBS'); track('vcam_start')
   })
   const toggleRec = () => run(async () => {
-    if (rec) { const r = rec; setRec(null); await r.stop(); setToast('Video saved to Downloads'); return }
+    if (rec) { const r = rec; setRec(null); setToast(`Video saved to ${await r.stop()}`); return }
     setRec(await startRecording(stage.current!))
   })
   // click or drag on the picture to put the bulb there (the preview is mirrored and cropped to fill the screen)
@@ -235,7 +235,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
 
       <div className="actions">
         {bridge() && <button className={`action wide ${live ? 'on' : ''}`} onClick={toggleLive}><Video size={15} /> {live ? 'Live as Light Up Camera' : 'Use in Zoom, Teams & OBS'}</button>}
-        <button className="action" onClick={() => run(async () => { await takePhoto(stage.current!); setToast('Photo saved to Downloads') })}><Camera size={15} /> Photo</button>
+        <button className="action" onClick={() => run(async () => { setToast(`Photo saved to ${await takePhoto(stage.current!)}`) })}><Camera size={15} /> Photo</button>
         <button className={`action ${rec ? 'rec' : ''}`} onClick={toggleRec}>{rec ? <><Square size={13} /> Stop {time}</> : <><Circle size={13} /> Record</>}</button>
       </div>
 

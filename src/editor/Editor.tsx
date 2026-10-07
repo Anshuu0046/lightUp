@@ -3,6 +3,7 @@ import { ArrowLeft, Captions, Cloud, Download, Film, Image as ImageIcon, Music, 
 import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, textClip, trackKindFor, uid } from './model'
 import { BASE_TEXT, ensureFont } from './text'
 import { layersAt } from './render'
+import { isNative, saveFile } from '../native'
 import { CaptionsDialog } from './CaptionsDialog'
 import { SoundsPanel } from './SoundsPanel'
 import { CutoutEditor } from './CutoutEditor'
@@ -278,7 +279,8 @@ export default function Editor() {
 function ExportDialog({ project, onClose }: { project: ReturnType<typeof newProject>; onClose: () => void }) {
   const [height, setHeight] = useState<720 | 1080>(1080)
   const [progress, setProgress] = useState<number | null>(null)
-  const [result, setResult] = useState<{ url: string; name: string } | null>(null)
+  const [result, setResult] = useState<{ url: string; name: string; blob: Blob } | null>(null)
+  const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
   const abort = useRef<AbortController | null>(null)
   useEffect(() => () => { abort.current?.abort(); if (result) URL.revokeObjectURL(result.url) }, [result])
@@ -291,7 +293,7 @@ function ExportDialog({ project, onClose }: { project: ReturnType<typeof newProj
       const blob = await exportVideo(project, { height, fps: 30 }, setProgress, abort.current.signal)
       const ext = blob.type.includes('webm') ? 'webm' : 'mp4'
       track('export', { aspect: project.aspect, height, seconds: Math.round(projectDuration(project)), clips: project.clips.length })
-      setResult({ url: URL.createObjectURL(blob), name: `${project.name.replace(/[^\w\- ]+/g, '').trim() || 'video'}.${ext}` })
+      setResult({ blob, url: URL.createObjectURL(blob), name: `${project.name.replace(/[^\w\- ]+/g, '').trim() || 'video'}.${ext}` })
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setError(e instanceof Error ? e.message : 'Export failed.')
     } finally { setProgress(null) }
@@ -302,7 +304,10 @@ function ExportDialog({ project, onClose }: { project: ReturnType<typeof newProj
       <h2>Export video</h2>
       {result ? <>
         <p>Your video is ready.</p>
-        <a className="ed-btn primary block" href={result.url} download={result.name}><Download size={15} /> Save {result.name}</a>
+        {isNative
+          ? <button className="ed-btn primary block" onClick={async () => setSaved(await saveFile(result.blob, result.name))}><Download size={15} /> Save & share</button>
+          : <a className="ed-btn primary block" href={result.url} download={result.name}><Download size={15} /> Save {result.name}</a>}
+        {saved && <p>Saved to {saved}.</p>}
         <button className="ed-btn block" onClick={onClose}>Back to editing</button>
       </> : progress !== null ? <>
         <p>Rendering every frame… keep this tab open.</p>

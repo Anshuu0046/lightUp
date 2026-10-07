@@ -1,4 +1,4 @@
-.editor { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: #0a0a0e; color: var(--ink); --row-v: 60px; --row-a: 40px; --panel: #111117; --raised: #17171f }
+.editor { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #0a0a0e; color: var(--ink); --row-v: 60px; --row-a: 40px; --panel: #111117; --raised: #17171f }
 .editor button:disabled { opacity: .4; cursor: default }
 
 /* ---------- top bar ---------- */
