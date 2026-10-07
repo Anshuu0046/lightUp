@@ -3,3 +3,7 @@
 *.depthart binary
 *.wasm binary
 *.ico binary
+# shell scripts keep Unix line endings; batch files Windows ones
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf

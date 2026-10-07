@@ -34,8 +34,8 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 Building it needs Java 21 and the Android SDK (platform 36, build-tools 36):
 
 ```bash
-set JAVA_HOME=C:\path	o\jdk-21
-set ANDROID_HOME=C:\path	ondroid-sdk
+set JAVA_HOME=C:\path\to\jdk-21
+set ANDROID_HOME=C:\path\to\android-sdk
 npm run apk          # signed release APK in android/app/build/outputs/apk/release/
 ```
 
