@@ -1,4 +1,4 @@
-.editor { position: fixed; inset: 0; display: flex; flex-direction: column; background: #0a0a0e; color: var(--ink); --row-v: 60px; --row-a: 40px; --panel: #111117; --raised: #17171f }
+.editor { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: #0a0a0e; color: var(--ink); --row-v: 60px; --row-a: 40px; --panel: #111117; --raised: #17171f }
 .editor button:disabled { opacity: .4; cursor: default }
 
 /* ---------- top bar ---------- */
@@ -42,7 +42,10 @@
 .ed-stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: radial-gradient(circle at center, #15151d, #0a0a0e 70%) }
 .ed-preview { position: relative; max-width: 100%; max-height: calc(100% - 56px); height: 100%; background: #000; border-radius: 6px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, .5) }
 .ed-preview canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none }
-.ed-hint { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--muted); font-size: 13px; pointer-events: none }
+.ed-hint { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; text-align: center; color: var(--muted); font-size: 13px }
+.ed-hint .ed-btn { max-width: 100%; white-space: normal; text-align: center }
+.ed-hint .ed-btn.primary { padding: 12px 18px; font-size: 14px }
+.ed-hint small { font-size: 12px; color: var(--faint) }
 .ed-transport { display: flex; align-items: center; gap: 10px }
 .ed-play { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #141218 }
 .ed-time { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 600; min-width: 120px }
@@ -123,7 +126,8 @@
 .ed-tabs { display: none }
 
 /* ---------- timeline ---------- */
-.ed-tools { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel) }
+.ed-tools { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel); overflow-x: auto; scrollbar-width: none }
+.ed-tools > * { flex: none }
 .ed-zoom { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted) }
 .ed-zoom input { width: 120px }
 .timeline { flex: none; display: flex; max-height: 42vh; overflow-y: auto; background: #0d0d12; border-top: 1px solid var(--line); user-select: none; -webkit-user-select: none }
@@ -171,10 +175,13 @@
 .ed-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; padding: 10px 16px; border-radius: 999px; background: rgba(20, 20, 28, .92); border: 1px solid var(--line); font-size: 13px; max-width: calc(100% - 32px); text-align: center }
 
 /* ---------- phones and narrow windows: preview on top, one side panel at a time, timeline below ---------- */
+/* very narrow phones: the frame-shape menu matters more than the project name */
+@media (max-width: 520px) { .ed-name { display: none } .ed-select { max-width: none; flex: 1 } }
 @media (max-width: 900px) {
   .editor { --row-v: 50px; --row-a: 34px }
   .wide-only { display: none }
   .ed-name { width: auto; flex: 1 }
+  .ed-zoom { font-size: 0; gap: 0 }
   .ed-select { max-width: 92px }
   .ed-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto }
   .ed-stage { padding: 10px; gap: 6px }

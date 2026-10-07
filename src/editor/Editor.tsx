@@ -80,8 +80,9 @@ export default function Editor() {
     const list = [...files]
     if (!list.length) return
     setBusy(`Importing ${list.length} file${list.length > 1 ? 's' : ''}…`)
+    const fresh = !project.clips.length
     for (const f of list) {
-      try { h.commit({ type: 'addAsset', asset: await importFile(f) }) }
+      try { const a = await importFile(f); h.commit({ type: 'addAsset', asset: a }); if (fresh) place(a) }
       catch (e) { setToast(e instanceof Error ? e.message : 'That file couldn’t be imported.') }
     }
     setBusy('')
@@ -221,7 +222,9 @@ export default function Editor() {
       <section className="ed-stage">
         <div className="ed-preview" style={{ aspectRatio: ASPECTS[project.aspect].join(' / ') }}>
           <canvas ref={canvas} onPointerDown={dragOnPreview} />
-          {!project.clips.length && <div className="ed-hint">Add media, then press <b>+</b> or drag it onto the timeline</div>}
+          {!project.clips.length && <div className="ed-hint">{project.assets.length
+            ? <><span>Your media is ready.</span><button className="ed-btn" onClick={() => setPanel('media')}>Show media</button><small>Tap <b>+</b> on a clip to put it on the timeline</small></>
+            : <><button className="ed-btn primary" onClick={() => fileInput.current?.click()}><Upload size={16} /> Add videos, photos or music</button><small>or drop files here</small></>}</div>}
         </div>
         <div className="ed-transport">
           <button className="ed-btn ghost" onClick={() => seek(0)} aria-label="Back to start"><SkipBack size={16} /></button>
