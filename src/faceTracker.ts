@@ -58,7 +58,26 @@ export async function createFaceTracker() {
 const HAND_MODEL_URL = '/models/hand_landmarker.task'
 
 /** Where a held light sits: the middle of the palm, in video fractions, plus how big the hand looks (closer = bigger) */
-export type Hand = { x: number; y: number; size: number }
+/** gesture is only set on frames where the hand was freshly seen */
+export type Hand = { x: number; y: number; size: number; gesture?: Gesture | null }
+/** ✌️ victory, 👍 thumbsUp, ☝️ point, 👌 pinch (thumb and index touching, other fingers up) */
+export type Gesture = 'victory' | 'thumbsUp' | 'point' | 'pinch'
+
+/** Reads a hand sign from the 21 hand landmarks (x scaled by the frame's aspect so distances are true) */
+export function gestureOf(m: { x: number; y: number }[], aspect: number): Gesture | null {
+  const dist = (a: number, b: number) => Math.hypot((m[a].x - m[b].x) * aspect, m[a].y - m[b].y)
+  const palm = dist(0, 9)
+  if (palm < 0.03) return null
+  // a finger is straight when its tip is well beyond its middle joint, seen from the wrist
+  const straight = (tip: number, joint: number) => dist(tip, 0) > dist(joint, 0) * 1.15
+  const [index, middle, ring, pinky] = [straight(8, 6), straight(12, 10), straight(16, 14), straight(20, 18)]
+  if (dist(4, 8) < palm * 0.3 && middle && ring && pinky) return 'pinch'
+  if (index && middle && !ring && !pinky) return 'victory'
+  if (index && !middle && !ring && !pinky) return 'point'
+  // thumbs up: fist closed, thumb sticking out and pointing up
+  if (!index && !middle && !ring && !pinky && dist(4, 5) > palm * 0.6 && m[4].y < m[3].y && m[4].y < m[5].y - palm * 0.35) return 'thumbsUp'
+  return null
+}
 
 let handModel: Promise<HandLandmarker> | undefined
 function loadHands() {
@@ -101,15 +120,16 @@ export async function createHandTracker() {
       if (video.readyState < 2 || video.currentTime === lastTime) return last
       lastTime = video.currentTime
       const m = model.detectForVideo(video, now).landmarks[0]
-      if (!m) { if (now - lastSeen > HOLD_MS) last = undefined; return last }
+      if (!m) { if (now - lastSeen > HOLD_MS) last = undefined; return last && { ...last, gesture: null } }
       // palm centre from the wrist and knuckles (the steadiest points), nudged toward the fingers where a bulb is held
       const palm = [0, 5, 9, 13, 17].map(i => m[i])
       const cx = palm.reduce((a, p) => a + p.x, 0) / palm.length, cy = palm.reduce((a, p) => a + p.y, 0) / palm.length
       const aspect = video.videoWidth / video.videoHeight
+      const gesture = gestureOf(m, aspect)
       const raw: Hand = { x: cx + (m[9].x - cx) * 0.35, y: cy + (m[9].y - cy) * 0.35, size: Math.hypot(m[0].x - m[9].x, (m[0].y - m[9].y) / aspect) }
       // a sudden leap is usually a misdetection (the other hand, a face): only accept it if it's seen twice in a row
       if (last && Math.hypot(raw.x - last.x, raw.y - last.y) > 0.22) {
-        if (!pending || Math.hypot(raw.x - pending.x, raw.y - pending.y) > 0.08) { pending = raw; return last }
+        if (!pending || Math.hypot(raw.x - pending.x, raw.y - pending.y) > 0.08) { pending = raw; return { ...last, gesture } }
       }
       pending = null
       lastSeen = now
@@ -118,7 +138,7 @@ export async function createHandTracker() {
       const gap = last ? Math.hypot(x - last.x, y - last.y) : 1
       const give = Math.min(1, Math.max(0, (gap - 0.002) / 0.006))
       last = last ? { x: last.x + (x - last.x) * give, y: last.y + (y - last.y) * give, size } : { x, y, size }
-      return last
+      return { ...last, gesture }
     },
   }
 }

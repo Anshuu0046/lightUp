@@ -1,15 +1,27 @@
 import type { Face } from '../faceTracker'
 
 export type Style = 'bulb' | 'ring' | 'window' | 'natural'
-export type Look = { style: Style; brightness: number; warmth: number; catchlight: boolean; auto: boolean; softSkin: boolean }
-export const DEFAULT_LOOK: Look = { style: 'bulb', brightness: 60, warmth: 3200, catchlight: true, auto: true, softSkin: true }
+/** RGB lamp colours; 'cycle' slowly runs through the rainbow */
+export const HUES = { red: [1, 0.1, 0.12], orange: [1, 0.42, 0.06], pink: [1, 0.18, 0.62], purple: [0.6, 0.2, 1], blue: [0.14, 0.34, 1], cyan: [0.08, 0.85, 1], green: [0.15, 1, 0.32] } satisfies Record<string, [number, number, number]>
+export type Hue = keyof typeof HUES | 'cycle'
+export const HUE_IDS = [...Object.keys(HUES), 'cycle'] as Hue[]
+
+export function hueColor(h: Hue, now: number): [number, number, number] {
+  if (h !== 'cycle') return HUES[h] as [number, number, number]
+  const a = ((now / 9000) % 1) * 6, f = a % 1
+  return ([[1, f, 0], [1 - f, 1, 0], [0, 1, f], [0, 1 - f, 1], [f, 0, 1], [1, 0, 1 - f]] as [number, number, number][])[Math.floor(a)]
+}
+
+/** keyHue: the main light's colour ('white' follows the warmth slider); back: a coloured lamp behind you, placed by backSide (0 left, 100 right) */
+export type Look = { style: Style; brightness: number; warmth: number; catchlight: boolean; auto: boolean; softSkin: boolean; keyHue: Hue | 'white'; back: Hue | 'off'; backLevel: number; backSide: number; gestures: boolean }
+export const DEFAULT_LOOK: Look = { style: 'bulb', brightness: 60, warmth: 3200, catchlight: true, auto: true, softSkin: true, keyHue: 'white', back: 'off', backLevel: 60, backSide: 75, gestures: true }
 export const WARMTH_MIN = 2000, WARMTH_MAX = 12000
 
 /** Where the light is in the frame (video fractions) and how close it is to the camera */
 export type Spot = { x: number; y: number; z: number }
 
 /** Everything the relighting pass needs, kept numeric so changes can glide instead of jump */
-export type Rig = { smooth: number; x: number; y: number; z: number; falloff: number; intensity: number; exposure: number; relief: number; specular: number; shadow: number; occlusion: number; bulb: number; r: number; g: number; b: number; catch: number }
+export type Rig = { br: number; bg: number; bb: number; back: number; bx: number; by: number; smooth: number; x: number; y: number; z: number; falloff: number; intensity: number; exposure: number; relief: number; specular: number; shadow: number; occlusion: number; bulb: number; r: number; g: number; b: number; catch: number }
 
 /** Colour of a light at a colour temperature, normalised so the brightest channel is 1 */
 function kelvin(k: number): [number, number, number] {
@@ -36,8 +48,14 @@ export function lightColor(k: number): [number, number, number] {
  * Ring: right at the lens with a fast falloff, so the face lifts well above the room and shadows vanish.
  * Window: a big source off to one side at face height, so one side of the face lights and the other falls into soft shadow.
  */
-export function rigFor(look: Look, face: Face | undefined, spot: Spot): Rig {
-  const [r, g, b] = lightColor(look.warmth)
+export function rigFor(look: Look, face: Face | undefined, spot: Spot, now = performance.now()): Rig {
+  const rig = styleRig(look, face, spot, look.keyHue === 'white' ? lightColor(look.warmth) : hueColor(look.keyHue, now))
+  const [br, bg, bb] = look.back === 'off' ? [0, 0, 0] : hueColor(look.back, now)
+  const back = look.back === 'off' ? 0 : 0.25 + (look.backLevel / 100) * 1.25
+  return { ...rig, br, bg, bb, back, bx: 1 - look.backSide / 100, by: (face?.y ?? 0.45) - 0.22 }
+}
+
+function styleRig(look: Look, face: Face | undefined, spot: Spot, [r, g, b]: [number, number, number]): Omit<Rig, 'br' | 'bg' | 'bb' | 'back' | 'bx' | 'by'> {
   const k = look.brightness / 100
   const fx = face?.x ?? 0.5, fy = face?.y ?? 0.45
   // a ring light's reflection is crisp and white; other lights read as softer glints

@@ -3,21 +3,23 @@ import { mixAudio } from './exporter'
 import { BASE_TEXT, TEXT_TEMPLATES, type TextSpec } from './text'
 
 export type CaptionLanguage = 'en' | 'hi' | 'te'
-export const LANGUAGES: { id: CaptionLanguage; label: string; whisper: string }[] = [
-  { id: 'en', label: 'English', whisper: 'english' },
-  { id: 'hi', label: 'हिन्दी Hindi', whisper: 'hindi' },
-  { id: 'te', label: 'తెలుగు Telugu', whisper: 'telugu' },
+export const LANGUAGES: { id: CaptionLanguage; label: string }[] = [
+  { id: 'en', label: 'English' },
+  { id: 'hi', label: 'हिन्दी Hindi' },
+  { id: 'te', label: 'తెలుగు Telugu' },
 ]
 export const MODELS = {
-  fast: { id: 'onnx-community/whisper-base', label: 'Fast', size: '~100 MB' },
-  accurate: { id: 'onnx-community/whisper-small', label: 'Accurate', size: '~250–400 MB' },
+  fast: { id: 'onnx-community/whisper-base', label: 'Fast', size: '~200 MB' },
+  accurate: { id: 'onnx-community/whisper-small', label: 'Good', size: '~300 MB' },
+  best: { id: 'onnx-community/whisper-large-v3-turbo', label: 'Best', size: '~600 MB' },
 }
-export type CaptionOptions = { language: CaptionLanguage; quality: keyof typeof MODELS; skipMusic: boolean; words: number; style: string }
+/** spoken: the language in the video ('auto' listens and decides); language: the language the captions are written in */
+export type CaptionOptions = { spoken: CaptionLanguage | 'auto'; language: CaptionLanguage; quality: keyof typeof MODELS; skipMusic: boolean; words: number; style: string }
 
 export const CAPTION_TRACK: Track = { id: 'captions', kind: 'visual', name: 'Captions', muted: false, hidden: false }
 
 type Chunk = { text: string; timestamp: [number, number | null] }
-export type Progress = { stage: 'audio' | 'download' | 'listening'; share?: number; mb?: number }
+export type Progress = { stage: 'audio' | 'download' | 'download-translator' | 'listening' | 'translating'; share?: number; mb?: number; heard?: CaptionLanguage }
 
 let worker: Worker | null = null
 
@@ -42,16 +44,17 @@ export async function transcribe(p: Project, o: CaptionOptions, onProgress: (p: 
   worker ??= new Worker(new URL('./captions.worker.ts', import.meta.url), { type: 'module' })
   const w = worker
   return new Promise((resolve, reject) => {
-    w.onmessage = (e: MessageEvent<{ type: string; share?: number; mb?: number; chunks?: Chunk[]; message?: string }>) => {
+    let heard: CaptionLanguage | undefined
+    w.onmessage = (e: MessageEvent<{ type: string; share?: number; mb?: number; chunks?: Chunk[]; message?: string; language?: CaptionLanguage }>) => {
       const m = e.data
-      if (m.type === 'download') onProgress({ stage: 'download', share: m.share, mb: m.mb })
-      else if (m.type === 'listening') onProgress({ stage: 'listening' })
+      if (m.type === 'download' || m.type === 'download-translator') onProgress({ stage: m.type, share: m.share, mb: m.mb, heard })
+      else if (m.type === 'detected') heard = m.language
+      else if (m.type === 'listening' || m.type === 'translating') onProgress({ stage: m.type, heard })
       else if (m.type === 'done') resolve(m.chunks!)
       else if (m.type === 'error') reject(new Error(m.message?.includes('fetch') ? 'Couldn’t download the speech model. Check your internet connection and try again.' : m.message))
     }
     w.onerror = () => reject(new Error('Captions stopped unexpectedly. Try the Fast model.'))
-    const lang = LANGUAGES.find(l => l.id === o.language)!.whisper
-    w.postMessage({ audio, language: lang, model: MODELS[o.quality].id }, [audio.buffer])
+    w.postMessage({ audio, spoken: o.spoken, target: o.language, model: MODELS[o.quality].id }, [audio.buffer])
   })
 }
 

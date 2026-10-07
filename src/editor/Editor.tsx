@@ -259,7 +259,7 @@ export default function Editor() {
       <label className="ed-zoom">Zoom<input type="range" min={15} max={300} value={pps} onChange={e => setPps(+e.target.value)} /></label>
     </div>
     <Timeline project={project} time={time} pps={pps} selected={selected} playing={playing}
-      onSelect={setSelected} onSeek={seek}
+      onSelect={setSelected} onSeek={seek} onZoom={setPps}
       onDropAsset={(id, trackId, at) => { const a = project.assets.find(x => x.id === id); if (a) place(a, trackId, at) }}
       edit={h} />
 

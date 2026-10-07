@@ -2,6 +2,7 @@ import { activeAt, type Clip, clipLength, type Project } from './model'
 import { type Fx, type Grade, NO_FX, NO_GRADE } from './looks'
 import { renderText, textMotion } from './text'
 import { personMask } from './segment'
+import { relight } from './relight'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
@@ -49,6 +50,8 @@ function filterFor(g: Grade, scale: number) {
  */
 export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: number, clip: Clip, W: number, H: number, t: number, fitMode: 'contain' | 'natural' = 'contain') {
   if (!srcW || !srcH) return
+  // lighting acts on the filmed scene, so it comes before the colour grade and effects
+  const lit = clip.light && fitMode === 'contain' ? relight(src, srcW, srcH, clip.light, clip.id, t) ?? src : src
   const grade = { ...NO_GRADE, ...clip.grade }, fx = { ...NO_FX, ...clip.fx }
   const local = t - clip.start, len = clipLength(clip)
   let alpha = clip.opacity
@@ -64,13 +67,13 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
   const shakeY = fx.shake ? (Math.sin(t * 21.7) + Math.sin(t * 33.9) * 0.5) * fx.shake * 14 * scale : 0
   const shakeR = fx.shake ? Math.sin(t * 13.1) * fx.shake * 0.6 : 0
 
-  let picture: CanvasImageSource = src
+  let picture: CanvasImageSource = lit
   if (!isPlain(grade, fx)) {
     const L = scratch(w, h), lg = L.getContext('2d')!
     lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1
     lg.clearRect(0, 0, w, h)
     lg.filter = filterFor(grade, scale)
-    lg.drawImage(src, 0, 0, w, h)
+    lg.drawImage(lit, 0, 0, w, h)
     lg.filter = 'none'
     // colour casts and film looks, layered on top of the picture
     if (grade.warmth) { lg.globalCompositeOperation = 'soft-light'; lg.globalAlpha = Math.abs(grade.warmth) * 0.55; lg.fillStyle = grade.warmth > 0 ? '#ff9a3c' : '#3c8cff'; lg.fillRect(0, 0, w, h) }

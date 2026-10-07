@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera, Circle, House, Maximize2, Square, Video, X } from 'lucide-react'
-import { createFaceTracker, createHandTracker, type Face } from '../faceTracker'
+import { createFaceTracker, createHandTracker, type Face, type Gesture, type Hand } from '../faceTracker'
 import { startRecording, takePhoto } from '../recorder'
 import { bridge, startVirtualCamera } from '../virtualCamera'
 import { AutoLight, NEUTRAL } from './autoLight'
 import { track } from '../cloud/supabase'
 import { DEFAULT_LOOK, drawCatchlights, glide, rigFor, WARMTH_MAX, WARMTH_MIN, type Look, type Rig, type Spot, type Style } from './rig'
+import { HUE_NAMES, Swatches } from './Swatches'
 import './live.css'
 
 const STYLES: { id: Style; name: string; hint: string }[] = [
@@ -85,6 +86,9 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
   const [secs, setSecs] = useState(0)
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([])
   const [handHint, setHandHint] = useState(false)
+  const [counter, setCounter] = useState(0)
+  const count = useRef(0)
+  const onGesture = useRef<(g: Gesture | null, hand: Hand, now: number) => void>(() => {})
   // where the bulb is when no hand is holding it; a click or drag moves it
   const spot = useRef<Spot>({ x: 0.3, y: 0.45, z: 0.42 })
   const placed = useRef(false)
@@ -151,14 +155,20 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
         const faceTurn = !phone || !bulbMode || frameNo % 2 === 1
         const found = faceTurn ? tracker?.detect(v, now) : face
         if (faceTurn) face = found ?? face
-        if (bulbMode && (!phone || frameNo % 2 === 0 || !face)) {
+        const gestures = lookRef.current.gestures
+        const handTurn = bulbMode ? !phone || frameNo % 2 === 0 || !face : gestures && frameNo % (phone ? 4 : 3) === 0
+        if (handTurn) {
           if (!hands && !loadingHands) { loadingHands = true; createHandTracker().then(h => { hands = h }).catch(() => {}) }
           const hand = hands?.detect(v, now)
-          // a bigger hand is closer to the camera, so the bulb comes forward with it, always just in front of the palm
-          if (hand) { spot.current = { x: hand.x, y: hand.y, z: 0.18 + Math.min(0.3, Math.max(0, (hand.size - 0.08) * 1.5)) }; lastHand = now; placed.current = true }
-          const wantHint = !placed.current && now - lastHand > 2500
-          if (wantHint !== hinted) { hinted = wantHint; setHandHint(wantHint) }
-        } else if (!bulbMode && hinted) { hinted = false; setHandHint(false) }
+          if (bulbMode) {
+            // a bigger hand is closer to the camera, so the bulb comes forward with it, always just in front of the palm
+            if (hand) { spot.current = { x: hand.x, y: hand.y, z: 0.18 + Math.min(0.3, Math.max(0, (hand.size - 0.08) * 1.5)) }; lastHand = now; placed.current = true }
+            const wantHint = !placed.current && now - lastHand > 2500
+            if (wantHint !== hinted) { hinted = wantHint; setHandHint(wantHint) }
+          }
+          if (gestures && hand && hand.gesture !== undefined) onGesture.current(hand.gesture, hand, now)
+        }
+        if (!bulbMode && hinted) { hinted = false; setHandHint(false) }
         glide(rig, rigFor(lookRef.current, face, spot.current), bulbMode ? 0.6 : 0.14) // the hand filter already smooths the bulb
         if (runtime && frameNo % 30 === 0) {
           const gpu = runtime.gpuMs
@@ -167,7 +177,9 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
         }
         // a real filament never burns perfectly still: a 2-3% shimmer
         const shimmer = bulbMode ? 1 + 0.018 * Math.sin(now * 0.0131) + 0.012 * Math.sin(now * 0.0377 + 1.3) : 1
-        runtime?.draw(v, { lightPosition: [rig.x, rig.y], lightZ: rig.z, falloff: rig.falloff, lightColor: [rig.r + (1 - rig.r) * corr.whiten, rig.g + (1 - rig.g) * corr.whiten, rig.b + (1 - rig.b) * corr.whiten], intensity: rig.intensity * corr.gain * shimmer, exposure: rig.exposure * (lookRef.current.style === 'bulb' ? 1 : Math.min(2.2, Math.max(0.4, Math.sqrt(corr.gain)))), relief: rig.relief, specular: rig.specular, shadow: rig.shadow, occlusion: rig.occlusion, bulb: rig.bulb, skinSoften: rig.smooth, mirror: false }, frameNo % depthEvery !== 0)
+        // auto light may pull a tinted white back toward white, but a chosen RGB colour stays as picked
+        const whiten = lookRef.current.keyHue === 'white' ? corr.whiten : 0
+        runtime?.draw(v, { lightPosition: [rig.x, rig.y], lightZ: rig.z, falloff: rig.falloff, lightColor: [rig.r + (1 - rig.r) * whiten, rig.g + (1 - rig.g) * whiten, rig.b + (1 - rig.b) * whiten], backColor: [rig.br, rig.bg, rig.bb, rig.back], backPosition: [rig.bx, rig.by], intensity: rig.intensity * corr.gain * shimmer, exposure: rig.exposure * (lookRef.current.style === 'bulb' ? 1 : Math.min(2.2, Math.max(0.4, Math.sqrt(corr.gain)))), relief: rig.relief, specular: rig.specular, shadow: rig.shadow, occlusion: rig.occlusion, bulb: rig.bulb, skinSoften: rig.smooth, mirror: false }, frameNo % depthEvery !== 0)
         corr = runtime ? auto.update(c, v, found ? face : undefined, lookRef.current.style, lookRef.current.brightness, lookRef.current.auto) : NEUTRAL
         const W = Math.min(1280, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth)
         if (o.width !== W || o.height !== H) { o.width = W; o.height = H }
@@ -205,9 +217,51 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     spot.current = { x, y, z: 0.42 }; placed.current = true; setHandHint(false)
   }
   const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`
+  const nextStyle = (step: number) => { const i = (STYLES.findIndex(s => s.id === look.style) + step + STYLES.length) % STYLES.length; set({ style: STYLES[i].id }); setToast(STYLES[i].name) }
+  const setBrightness = (b: number) => { b = Math.round(Math.min(100, Math.max(0, b))); if (b !== look.brightness) { set({ brightness: b }); setToast(`Brightness ${b}`) } }
+  // a short countdown, so a hand sign never ends up in the photo
+  const countdownThen = (what: string, f: () => void) => {
+    if (count.current) return
+    let n = 3; count.current = n; setCounter(n); setToast(what)
+    const t = setInterval(() => { n--; count.current = n; setCounter(n); if (!n) { clearInterval(t); f() } }, 1000)
+  }
+  const photo = () => run(async () => { setToast(`Photo saved to ${await takePhoto(stage.current!)}`) })
+
+  // hand signs: ✌️ photo, 👍 start/stop recording, ☝️ next light, 👌 then move up or down for brightness
+  const signs = useRef({ sign: null as Gesture | null, since: 0, ready: 0, pinch: null as { y: number; b: number } | null })
+  onGesture.current = (g, hand, now) => {
+    const s = signs.current
+    if (g !== s.sign) { s.sign = g; s.since = now; s.pinch = null }
+    if (g === 'pinch') {
+      if (now - s.since < 250) return
+      if (!s.pinch) s.pinch = { y: hand.y, b: look.brightness }
+      else setBrightness(s.pinch.b + (s.pinch.y - hand.y) * 220)
+      return
+    }
+    if (!g || now - s.since < 450 || now < s.ready) return
+    s.ready = now + 2500
+    if (g === 'victory') countdownThen('✌️ Photo in 3…', photo)
+    else if (g === 'thumbsUp') { if (rec) toggleRec(); else countdownThen('👍 Recording in 3…', toggleRec) }
+    else if (g === 'point') nextStyle(1)
+  }
+
+  // touch or drag on the picture (except in bulb mode, where that places the bulb): swipe sideways to change the light, up or down for brightness
+  const swipe = useRef<{ x: number; y: number; b: number; moved: boolean } | null>(null)
+  const stageDown = (e: React.PointerEvent) => { if (look.style === 'bulb') return placeBulb(e); swipe.current = { x: e.clientX, y: e.clientY, b: look.brightness, moved: false } }
+  const stageMove = (e: React.PointerEvent) => {
+    if (look.style === 'bulb') return placeBulb(e)
+    const s = swipe.current, dx = s ? e.clientX - s.x : 0, dy = s ? e.clientY - s.y : 0
+    if (s && Math.abs(dy) > 24 && Math.abs(dy) > Math.abs(dx)) { s.moved = true; setBrightness(s.b - dy / 3) }
+  }
+  const stageUp = (e: React.PointerEvent) => {
+    const s = swipe.current; swipe.current = null
+    if (!s || s.moved) return
+    const dx = e.clientX - s.x
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) nextStyle(dx < 0 ? 1 : -1)
+  }
 
   return <div className={`live ${idle && !open ? 'idle' : ''}`}>
-    <div className={`live-stage ${look.style === 'bulb' ? 'placeable' : ''}`} ref={stage} onPointerDown={placeBulb} onPointerMove={placeBulb}>
+    <div className={`live-stage ${look.style === 'bulb' ? 'placeable' : ''}`} ref={stage} onPointerDown={stageDown} onPointerMove={stageMove} onPointerUp={stageUp} onPointerCancel={() => { swipe.current = null }}>
       <video ref={video} className={status === 'plain' ? 'plain' : ''} muted playsInline />
       <canvas ref={canvas} className={`gpu-canvas depth-canvas ${status === 'ready' ? 'active' : ''}`} />
       <canvas ref={overlay} className="ring-overlay" />
@@ -216,6 +270,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     {status === 'loading' && <div className="pill center"><span className="spinner" /> Preparing realistic lighting…</div>}
     {status === 'plain' && <div className="pill top">This computer can’t run the lighting engine, so you’re seeing your camera as is.</div>}
     {toast && <div className="pill top" role="status">{toast}</div>}
+    {counter > 0 && <div className="countdown" aria-live="assertive">{counter}</div>}
     {handHint && !toast && status === 'ready' && <div className="pill bottom">Hold up your hand to carry the bulb, or click anywhere to place it</div>}
     {(rec || live) && <div className="badges">{rec && <span className="badge rec"><i /> REC {time}</span>}{live && <span className="badge on"><i /> Light Up Camera</span>}</div>}
 
@@ -237,13 +292,26 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
       <fieldset disabled={look.style === 'natural'}>
         <label className="slider"><span>Brightness <b>{look.brightness}</b></span>
           <input type="range" min="0" max="100" value={look.brightness} onChange={e => set({ brightness: +e.target.value })} style={{ '--p': `${look.brightness}%` } as React.CSSProperties} /></label>
-        <label className="slider warmth"><span>Colour <b>{look.warmth > 7000 ? 'Blue' : `${look.warmth}K`}</b></span>
+        <div className="slider"><span>Light colour <b>{look.keyHue === 'white' ? 'White' : HUE_NAMES[look.keyHue]}</b></span>
+          <Swatches value={look.keyHue} none={{ id: 'white', name: 'White (choose warmth below)' }} onPick={keyHue => set({ keyHue })} /></div>
+        {look.keyHue === 'white' && <label className="slider warmth"><span>Warmth <b>{look.warmth > 7000 ? 'Blue' : `${look.warmth}K`}</b></span>
           <input type="range" min={WARMTH_MIN} max={WARMTH_MAX} step="100" value={WARMTH_MIN + WARMTH_MAX - look.warmth} onChange={e => set({ warmth: WARMTH_MIN + WARMTH_MAX - +e.target.value })} />
-          <span className="ends"><small>Blue</small><small>Daylight</small><small>Warm</small></span></label>
+          <span className="ends"><small>Blue</small><small>Daylight</small><small>Warm</small></span></label>}
+        <div className="slider"><span>Background light <b>{look.back === 'off' ? 'Off' : HUE_NAMES[look.back]}</b></span>
+          <Swatches value={look.back} none={{ id: 'off', name: 'Off' }} onPick={back => set({ back })} /></div>
+        {look.back !== 'off' && <>
+          <label className="slider"><span>Background brightness <b>{look.backLevel}</b></span>
+            <input type="range" min="0" max="100" value={look.backLevel} onChange={e => set({ backLevel: +e.target.value })} style={{ '--p': `${look.backLevel}%` } as React.CSSProperties} /></label>
+          <label className="slider"><span>Lamp position</span>
+            <input type="range" min="0" max="100" value={look.backSide} onChange={e => set({ backSide: +e.target.value })} style={{ '--p': `${look.backSide}%` } as React.CSSProperties} />
+            <span className="ends"><small>Left</small><small>Behind you</small><small>Right</small></span></label>
+        </>}
         <label className="switch"><span>Auto light<small>Keeps your face evenly lit in any room</small></span>
           <input type="checkbox" checked={look.auto} onChange={e => set({ auto: e.target.checked })} /><i /></label>
         <label className="switch"><span>Soft skin<small>The smooth, even skin a real ring light gives</small></span>
           <input type="checkbox" checked={look.softSkin} onChange={e => set({ softSkin: e.target.checked })} /><i /></label>
+        <label className="switch"><span>Hand gestures<small>✌️ photo · 👍 record · ☝️ next light · 👌 move up/down for brightness</small></span>
+          <input type="checkbox" checked={look.gestures} onChange={e => set({ gestures: e.target.checked })} /><i /></label>
         <label className="switch"><span>Eye catchlights<small>The light’s reflection in your eyes</small></span>
           <input type="checkbox" checked={look.catchlight} onChange={e => set({ catchlight: e.target.checked })} /><i /></label>
       </fieldset>

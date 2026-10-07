@@ -55,6 +55,12 @@ const EDGE_SPATIAL_SIGMA = 3.2;
 /** how far the warm glow of light passing through skin reaches around the bulb */
 const SUBSURFACE_REACH = 0.075;
 const SUBSURFACE_GAIN = 0.9;
+/** background lamp: how far its pool of colour spreads across the wall, the faint glow it gives even dark walls, and the edge light it puts on you */
+const BACK_REACH = 0.6;
+const BACK_HAZE = 0.02;
+const RIM_GAIN = 2.2;
+/** with a lamp on, the room's own light on the wall drops this much, so the colour reads (creators film RGB looks in dim rooms) */
+const BACK_DIM = 0.6;
 
 /** soft skin: average nearby pixels that look alike, so pores and blemishes soften but edges (eyes, lips, beard) stay sharp */
 const SMOOTH_RING = [0, 1, 2, 3, 4, 5, 6, 7] as const;
@@ -117,6 +123,9 @@ export const RelightParams = d.struct({
   falloff: d.f32,
   /** soft skin, 0-1 */
   skinSoften: d.f32,
+  /** a coloured lamp behind the subject: rgb, and strength in w (0 = off) */
+  backColor: d.vec4f,
+  backPosition: d.vec2f,
 });
 
 export const rangeStabilityLayout = tgpu.bindGroupLayout({
@@ -529,7 +538,9 @@ export const relightFragment = tgpu.fragmentFn({
   const grazing = std.pow(1 - std.saturate(normal.z), d.f32(5));
   const highlight = lobe * (SPECULAR_F0 + (1 - SPECULAR_F0) * grazing);
 
-  let lit = albedo * AMBIENT_FILL * (relightLayout.$.params.exposure * occlusion);
+  const back = relightLayout.$.params.backColor;
+  const far = 1 - std.smoothstep(0.3, 0.6, surface.w);
+  let lit = albedo * AMBIENT_FILL * (relightLayout.$.params.exposure * occlusion * (1 - far * std.saturate(back.w * 2) * BACK_DIM));
   lit += albedo * tint * (lambert * falloff * shadow * relightLayout.$.params.intensity);
   lit +=
     tint *
@@ -544,6 +555,17 @@ export const relightFragment = tgpu.fragmentFn({
   const sameDepth = std.saturate(1 - (relightLayout.$.params.lightZ - surfaceZ(surface.w)) / 0.6);
   const skin = std.saturate(cameraColor.x - cameraColor.z) * 3;
   lit += albedo * d.vec3f(1, 0.38, 0.2) * tint * (nearBulb * sameDepth * std.min(skin, d.f32(1)) * relightLayout.$.params.bulb * relightLayout.$.params.intensity * SUBSURFACE_GAIN);
+  // a coloured lamp behind you: a pool of colour on the wall, and a bright edge where your outline turns toward it
+  if (back.w > 0) {
+    const reachBack = std.length(wuv - relightLayout.$.params.backPosition) / BACK_REACH;
+    const pool = 1 / (1 + reachBack * reachBack);
+    lit += (albedo + BACK_HAZE) * back.xyz * (far * pool * back.w);
+    const facing = std.saturate(std.dot(std.normalize(normal.xy + d.vec2f(0.0001)), std.normalize(relightLayout.$.params.backPosition - wuv + d.vec2f(0.0001))));
+    const edge = std.pow(1 - std.saturate(normal.z), d.f32(1.5));
+    // only well in front of the wall, so the soft depth edge around your outline doesn't glow on the wall itself
+    const onYou = std.smoothstep(0.55, 0.8, surface.w);
+    lit += albedo * back.xyz * (onYou * facing * edge * back.w * RIM_GAIN);
+  }
   const presence = bulbPresence() * relightLayout.$.params.bulb;
   const bulb = bulbSurface(wuv, tint, surface.w);
   lit = std.mix(lit, bulb.xyz * presence, bulb.w * presence);

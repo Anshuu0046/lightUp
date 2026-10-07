@@ -78,6 +78,9 @@ interface RelightingState {
   readonly bulb: number;
   readonly falloff: number;
   readonly skinSoften: number;
+  /** background lamp colour and strength (0 = off), and where it is, as video fractions */
+  readonly backColor: readonly [number, number, number, number];
+  readonly backPosition: readonly [number, number];
 }
 
 type RelightingSettings = Partial<RelightingState>;
@@ -97,6 +100,8 @@ export const defaultRelightingSettings: RelightingState = {
   bulb: 1,
   falloff: 0.85,
   skinSoften: 0,
+  backColor: [0, 0, 0, 0],
+  backPosition: [0.8, 0.3],
 };
 
 function sourceAspect(source: DepthCameraFrame['source'], swapAxes: boolean): number {
@@ -331,6 +336,8 @@ export class DepthRelightingRenderer {
       aspect: this.#aspect,
       falloff: this.#settings.falloff,
       skinSoften: this.#settings.skinSoften,
+      backColor: d.vec4f(...this.#settings.backColor),
+      backPosition: d.vec2f((this.#settings.backPosition[0] - 0.5) * this.#aspect + 0.5, this.#settings.backPosition[1]),
     });
   }
 }

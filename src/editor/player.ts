@@ -3,6 +3,7 @@ import { urlOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { clipChain, clipGainAt, envelopeAt, isMusicTrack, NO_AUDIO } from './audio'
 import { loadSegmenter, segmenterReady } from './segment'
+import { loadRelight, relightReady } from './relight'
 import { frameAt, loadAnimation } from './anim'
 import { fileOf } from './media'
 
@@ -33,6 +34,7 @@ export class Player {
 
   setProject(p: Project) {
     if (p.clips.some(c => c.cutout) && !segmenterReady()) loadSegmenter().then(() => !this.playing && this.draw()).catch(() => {})
+    if (p.clips.some(c => c.light) && !relightReady()) loadRelight().then(() => !this.playing && this.draw()).catch(() => {})
     this.project = p; this.prune(); if (!this.playing) this.seek(Math.min(this.time, projectDuration(p))) }
 
   seek(t: number) {

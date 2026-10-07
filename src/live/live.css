@@ -156,3 +156,6 @@ button:focus-visible, select:focus-visible { outline: 2px solid rgba(255, 193, 1
 /* touch screens have no keyboard shortcuts to advertise */
 @media (hover: none) { .panel footer small, .style kbd { display: none } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
+
+.live-stage { touch-action: none }
+.countdown { position: absolute; inset: 0; display: grid; place-items: center; z-index: 6; pointer-events: none; font: 400 min(38vw, 220px)/1 var(--serif); color: #fff; text-shadow: 0 8px 40px rgba(0, 0, 0, .5); animation: rise .35s var(--ease) }

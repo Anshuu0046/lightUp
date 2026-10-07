@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Copy, Scissors, Sparkles, Trash2 } from 'lucide-react'
+import { Copy, Lightbulb, Scissors, Sparkles, Trash2 } from 'lucide-react'
 import { type Asset, type Clip, collides, type Project } from './model'
 import { type Fx, type Grade, NO_FX, NO_GRADE, PRESETS, thumbFilter } from './looks'
 import { type ClipAudio, NO_AUDIO } from './audio'
+import { DEFAULT_LIGHTING, type Lighting, relightReady } from './relight'
+import { Swatches } from '../live/Swatches'
 import { BASE_TEXT, ensureFont, FONTS, TEXT_TEMPLATES, type TextAnim, type TextSpec } from './text'
 
 type Edit = {
@@ -28,8 +30,8 @@ function Toggle({ label, hint, on, onChange }: { label: string; hint?: string; o
 export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, onRemove, onError, onDetach, onRefine }: Props) {
   const visual = !asset || asset.kind !== 'audio'
   const text = clip.text
-  const tabs = text ? (['text', 'adjust', 'fx'] as const) : (['adjust', 'look', 'fx'] as const)
-  const [tab, setTab] = useState<'text' | 'adjust' | 'look' | 'fx'>(text ? 'text' : 'adjust')
+  const tabs = text ? (['text', 'adjust', 'fx'] as const) : (['adjust', 'look', 'light', 'fx'] as const)
+  const [tab, setTab] = useState<'text' | 'adjust' | 'look' | 'light' | 'fx'>(text ? 'text' : 'adjust')
   const grade = { ...NO_GRADE, ...clip.grade }, fx = { ...NO_FX, ...clip.fx }
   const live = (patch: Partial<Clip>) => edit.live({ type: 'updateClip', id: clip.id, patch })
   const setGrade = (p: Partial<Grade>) => live({ grade: { ...grade, ...p }, preset: undefined })
@@ -48,7 +50,7 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
   return <>
     <div className="ed-side-head"><b title={asset?.name}>{text ? 'Text' : asset?.name}</b></div>
     {visual && <div className="ed-segment" role="tablist">
-      {tabs.map(t => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t === 'text' ? 'Text' : t === 'adjust' ? 'Adjust' : t === 'look' ? 'Look' : 'Effects'}</button>)}
+      {tabs.map(t => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t === 'text' ? 'Text' : t === 'adjust' ? 'Adjust' : t === 'look' ? 'Look' : t === 'light' ? 'Light' : 'Effects'}</button>)}
     </div>}
 
     {text && tab === 'text' && <TextPanel text={text} edit={edit} setText={setText} commitText={commitText} />}
@@ -105,6 +107,8 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
       <button className="ed-btn block" onClick={() => commit({ grade: { ...NO_GRADE }, preset: 'none' })}>Reset look</button>
     </>}
 
+    {visual && tab === 'light' && <LightPanel light={clip.light} edit={edit} set={l => live({ light: l })} commit={l => edit.commit({ type: 'updateClip', id: clip.id, patch: { light: l } })} />}
+
     {visual && tab === 'fx' && <>
       <Range label="Fade in" value={fx.fadeIn} min={0} max={3} step={0.1} unit="s" edit={edit} onChange={v => setFx({ fadeIn: v })} />
       <Range label="Fade out" value={fx.fadeOut} min={0} max={3} step={0.1} unit="s" edit={edit} onChange={v => setFx({ fadeOut: v })} />
@@ -122,6 +126,36 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
       <button className="ed-btn" onClick={onDuplicate}><Copy size={14} /> Duplicate</button>
       <button className="ed-btn danger" onClick={onRemove}><Trash2 size={14} /> Delete</button>
     </div>
+  </>
+}
+
+/** Studio lighting on a filmed clip: a focus light on the person, the room level, and a coloured lamp behind them */
+function LightPanel({ light, edit, set, commit }: { light?: Lighting; edit: Edit; set: (l: Lighting) => void; commit: (l: Lighting | undefined) => void }) {
+  if (!light) return <div className="ed-nothing"><b>Studio lighting</b>Light the person in this clip like a studio would: a focus light you can move and colour, a darker room, and an RGB lamp on the wall behind them.
+    <button className="ed-btn primary block" onClick={() => commit(DEFAULT_LIGHTING)}><Lightbulb size={15} /> Add lighting</button></div>
+  const L = light, s = (p: Partial<Lighting>) => set({ ...L, ...p })
+  return <>
+    <div className="ed-card"><b className="ed-card-title">Focus light</b>
+      <Range label="Brightness" value={L.key} min={0} max={100} edit={edit} onChange={v => s({ key: v })} />
+      <div className="ed-field"><span>Colour</span><Swatches value={L.keyHue} none={{ id: 'white', name: 'White' }} onPick={keyHue => commit({ ...L, keyHue })} /></div>
+      {L.keyHue === 'white' && <Range label="Warmth" value={L.warmth} min={2000} max={9000} step={100} unit="K" edit={edit} onChange={v => s({ warmth: v })} />}
+      <Range label="Left / right" value={Math.round(L.x * 100)} min={0} max={100} edit={edit} onChange={v => s({ x: v / 100 })} />
+      <Range label="Up / down" value={Math.round(L.y * 100)} min={0} max={100} edit={edit} onChange={v => s({ y: v / 100 })} />
+      <Range label="Softness" value={L.soft} min={0} max={100} edit={edit} onChange={v => s({ soft: v })} />
+    </div>
+    <div className="ed-card"><b className="ed-card-title">Room</b>
+      <Range label="Room light" value={L.room} min={10} max={100} unit="%" edit={edit} onChange={v => s({ room: v })} />
+      <small className="ed-note">Lower it so the person stands out from the background.</small>
+    </div>
+    <div className="ed-card"><b className="ed-card-title">Background light</b>
+      <div className="ed-field"><Swatches value={L.back} none={{ id: 'off', name: 'Off' }} onPick={back => commit({ ...L, back })} /></div>
+      {L.back !== 'off' && <>
+        <Range label="Brightness" value={L.backLevel} min={0} max={100} edit={edit} onChange={v => s({ backLevel: v })} />
+        <Range label="Lamp position" value={L.backSide} min={0} max={100} edit={edit} onChange={v => s({ backSide: v })} />
+      </>}
+    </div>
+    <small className="ed-note">{relightReady() ? 'Depth lighting: the light wraps around faces and casts real shadows.' : 'This device can’t run depth lighting, so a simpler light is used.'}</small>
+    <button className="ed-btn block" onClick={() => commit(undefined)}>Remove lighting</button>
   </>
 }
 

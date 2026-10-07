@@ -2,6 +2,7 @@
 import type { Fx, Grade } from './looks'
 import type { TextSpec } from './text'
 import type { ClipAudio, Ducking } from './audio'
+import type { Lighting } from './relight'
 
 export type AssetKind = 'video' | 'image' | 'audio'
 export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string; /** waveform picture for sound */ wave?: string; /** GIFs and animated stickers loop */ animated?: boolean }
@@ -36,6 +37,8 @@ export type Clip = {
   cutout?: Cutout
   /** crop the clip to a shape (picture-in-picture bubbles) */
   shape?: 'none' | 'rounded' | 'circle'
+  /** studio light added to the filmed picture */
+  light?: Lighting
 }
 
 export type Cutout = { mode: 'remove' | 'blur'; threshold: number; feather: number }

@@ -65,7 +65,7 @@
 .ed-nothing { display: flex; flex-direction: column; gap: 6px; padding: 20px 4px; color: var(--muted); font-size: 12.5px }
 .ed-nothing b { color: var(--ink) }
 
-.ed-segment { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; margin-bottom: 14px; border-radius: 10px; background: rgba(255, 255, 255, .05) }
+.ed-segment { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; padding: 3px; margin-bottom: 14px; border-radius: 10px; background: rgba(255, 255, 255, .05) }
 .ed-segment button { padding: 7px 4px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--muted) }
 .ed-segment button.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, .4) }
 .ed-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px }
@@ -92,7 +92,6 @@
 .ed-colors { display: flex; align-items: center; gap: 10px }
 .editor input[type=color] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer }
 .ed-mini { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted) }
-.ed-segment.two { grid-template-columns: 1fr 1fr }
 .ed-card { padding: 10px 12px; margin-bottom: 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line) }
 .ed-card .ed-field { margin: 6px 0 4px }
 .ed-note { color: var(--faint); font-size: 11.5px }
@@ -205,3 +204,17 @@
   .ed-time { min-width: 0 }
   .ed-preview { max-height: calc(100% - 50px) }
 }
+.ed-field .ed-note { display: block; margin-top: 6px }
+
+/* touch screens: one finger scrolls the timeline, a selected clip drags, bigger handles and rows for fingers */
+.tl-scroll { touch-action: pan-x pan-y }
+.tl-ruler, .tl-clip.selected { touch-action: none }
+@media (pointer: coarse) {
+  .editor { --row-v: 56px; --row-a: 44px }
+  .tl-trim { width: 22px }
+  .tl-clip:not(.selected) .tl-trim { pointer-events: none }
+  .tl-clip.selected .tl-trim::after { left: 8px; width: 4px }
+  .tl-icon { width: 34px; height: 34px }
+  .tl-ruler { height: 32px } .tl-ruler-spacer { height: 32px }
+}
+.ed-modal > .ed-note { display: block; margin: -6px 0 12px }

@@ -8,6 +8,7 @@ import { fileOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { ensureFont } from './text'
 import { loadSegmenter } from './segment'
+import { loadRelight } from './relight'
 import { frameAt, loadAnimation } from './anim'
 
 export type ExportOptions = { height: 720 | 1080; fps: 30 | 60 }
@@ -61,6 +62,7 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
     }
     for (const c of p.clips) if (c.text) await ensureFont(c.text)
     if (p.clips.some(c => c.cutout)) await loadSegmenter()
+    if (p.clips.some(c => c.light)) await loadRelight()
     const images = new Map<string, ImageBitmap>()
     for (const a of p.assets) if (a.kind === 'image' && p.clips.some(c => c.assetId === a.id)) { if (a.animated) await loadAnimation(a.id, fileOf(a.id)!); else images.set(a.id, await createImageBitmap(fileOf(a.id)!)) }
 

@@ -10,6 +10,8 @@ type Props = {
   playing: boolean
   onSelect: (id: string | null) => void
   onSeek: (t: number) => void
+  /** pinch to zoom on touch screens */
+  onZoom: (pps: number) => void
   onDropAsset: (assetId: string, trackId: string, at: number) => void
   edit: { begin: () => void; live: (a: { type: 'updateClip'; id: string; patch: Partial<Clip> }) => void; end: () => void; commit: (a: { type: 'setTrack'; id: string; patch: Partial<Track> }) => void }
 }
@@ -18,7 +20,7 @@ const SNAP_PX = 8
 const HEAD = 132
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`
 
-export function Timeline({ project, time, pps, selected, playing, onSelect, onSeek, onDropAsset, edit }: Props) {
+export function Timeline({ project, time, pps, selected, playing, onSelect, onSeek, onZoom, onDropAsset, edit }: Props) {
   const scroller = useRef<HTMLDivElement>(null)
   const duration = projectDuration(project)
   const width = Math.max((duration + 12) * pps, 600)
@@ -30,6 +32,35 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
     const x = time * pps
     if (x < s.scrollLeft || x > s.scrollLeft + s.clientWidth - 40) s.scrollLeft = x - 60
   }, [time, pps, playing])
+
+  // touch: one finger scrolls (the browser does that), two fingers pinch to zoom around the point between them
+  const latest = useRef({ pps, onZoom }); latest.current = { pps, onZoom }
+  useEffect(() => {
+    const s = scroller.current!
+    let pinch: { d: number; pps: number; t: number } | null = null
+    const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY)
+    const middle = (e: TouchEvent) => (e.touches[0].clientX + e.touches[1].clientX) / 2 - s.getBoundingClientRect().left
+    const start = (e: TouchEvent) => { if (e.touches.length === 2) pinch = { d: spread(e), pps: latest.current.pps, t: (middle(e) + s.scrollLeft) / latest.current.pps } }
+    const move = (e: TouchEvent) => {
+      if (!pinch || e.touches.length !== 2) return
+      e.preventDefault()
+      const next = Math.min(300, Math.max(15, pinch.pps * spread(e) / pinch.d)), at = pinch.t * next - middle(e)
+      latest.current.onZoom(next)
+      requestAnimationFrame(() => { s.scrollLeft = at })
+    }
+    const end = (e: TouchEvent) => { if (e.touches.length < 2) pinch = null }
+    s.addEventListener('touchstart', start, { passive: true }); s.addEventListener('touchmove', move, { passive: false })
+    s.addEventListener('touchend', end); s.addEventListener('touchcancel', end)
+    return () => { s.removeEventListener('touchstart', start); s.removeEventListener('touchmove', move); s.removeEventListener('touchend', end); s.removeEventListener('touchcancel', end) }
+  }, [])
+
+  /** on touch, a drag is the browser scrolling the timeline, so only a tap (a press that barely moved) acts */
+  const onTap = (e: React.PointerEvent, act: (ev: PointerEvent) => void) => {
+    const x0 = e.clientX, y0 = e.clientY
+    const off = () => { removeEventListener('pointerup', up); removeEventListener('pointercancel', off) }
+    const up = (ev: PointerEvent) => { off(); if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 10) act(ev) }
+    addEventListener('pointerup', up); addEventListener('pointercancel', off)
+  }
 
   const timeAt = (clientX: number) => {
     const s = scroller.current!
@@ -48,6 +79,8 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
   const grab = (e: React.PointerEvent, clip: Clip, mode: 'move' | 'left' | 'right') => {
     e.stopPropagation()
     if (e.button !== 0) return
+    // touch: the first tap selects; once selected, the clip can be dragged and trimmed
+    if (e.pointerType === 'touch' && selected !== clip.id) return onTap(e, () => onSelect(clip.id))
     onSelect(clip.id)
     const asset = project.assets.find(a => a.id === clip.assetId)
     const x0 = e.clientX
@@ -112,7 +145,7 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
           {ticks.map(s => <span key={s} style={{ left: s * pps }}>{fmt(s).replace(/\.0$/, '')}</span>)}
         </div>
         {project.tracks.map(t => <div key={t.id} data-track={t.id} className={`tl-track ${t.kind} ${t.hidden ? 'hidden' : ''}`}
-          onPointerDown={e => { onSelect(null); scrub(e) }}
+          onPointerDown={e => e.pointerType === 'touch' ? onTap(e, ev => { onSelect(null); onSeek(timeAt(ev.clientX)) }) : (onSelect(null), scrub(e))}
           onDragOver={e => e.dataTransfer.types.includes('application/x-lightup-asset') && e.preventDefault()} onDrop={e => drop(e, t)}>
           {project.clips.filter(c => c.trackId === t.id).map(c => <ClipView key={c.id} clip={c} asset={project.assets.find(a => a.id === c.assetId)} sound={t.kind === 'audio'} pps={pps} selected={selected === c.id} onGrab={grab} />)}
         </div>)}

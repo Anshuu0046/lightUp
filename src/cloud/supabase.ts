@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
  */
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-export const supabase: SupabaseClient | null = url && key ? createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } }) : null
+export const supabase: SupabaseClient | null = url && key ? createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, flowType: 'pkce' } }) : null
 export const cloudEnabled = !!supabase
 
 export type Profile = { id: string; email: string | null; name: string | null; role: 'user' | 'admin'; banned: boolean; created_at: string; last_seen: string | null }
@@ -38,15 +38,54 @@ export function useAccount() {
 export async function sendCode(email: string) {
   if (!supabase) throw new Error('Accounts aren’t set up.')
   const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(friendly(error.message))
 }
 /** Step 2: check the code */
 export async function verifyCode(email: string, token: string) {
   if (!supabase) throw new Error('Accounts aren’t set up.')
   const { error } = await supabase.auth.verifyOtp({ email, token: token.trim(), type: 'email' })
-  if (error) throw new Error(error.message.includes('expired') ? 'That code has expired. Send a new one.' : 'That code didn’t match. Check it and try again.')
+  if (error) throw new Error(friendly(error.message))
 }
 export const signOut = () => supabase?.auth.signOut()
+
+/** Supabase's messages, in plain words */
+function friendly(message: string) {
+  if (/invalid login credentials/i.test(message)) return 'That email and password don’t match.'
+  if (/already registered|already been registered/i.test(message)) return 'There’s already an account with this email. Sign in instead.'
+  if (/email not confirmed/i.test(message)) return 'Confirm your email first: enter the code we sent you, or sign in with a code.'
+  if (/password should be at least/i.test(message)) return 'Use a password of at least 8 characters.'
+  if (/provider is not enabled|unsupported provider/i.test(message)) return 'Google sign-in isn’t switched on yet. Use your email instead.'
+  if (/rate limit|too many/i.test(message)) return 'Too many tries. Wait a minute and try again.'
+  if (/expired|invalid.*otp|token/i.test(message)) return 'That code didn’t work. Check it, or send a new one.'
+  return message
+}
+function sb() { if (!supabase) throw new Error('Accounts aren’t set up.'); return supabase }
+
+export async function signInWithPassword(email: string, password: string) {
+  const { error } = await sb().auth.signInWithPassword({ email, password })
+  if (error) throw new Error(friendly(error.message))
+}
+/** Creates the account. Returns true when the email still has to be confirmed with the 6-digit code that was sent. */
+export async function signUp(email: string, password: string, name: string) {
+  const { data, error } = await sb().auth.signUp({ email, password, options: { data: { full_name: name } } })
+  if (error) throw new Error(friendly(error.message))
+  // Supabase answers an existing, confirmed email with a user that has no identities instead of an error
+  if (data.user && !data.user.identities?.length) throw new Error(friendly('already registered'))
+  return !data.session
+}
+export async function confirmSignUp(email: string, token: string) {
+  const { error } = await sb().auth.verifyOtp({ email, token: token.trim(), type: 'signup' })
+  if (error) throw new Error(friendly(error.message))
+}
+export async function setPassword(password: string) {
+  const { error } = await sb().auth.updateUser({ password })
+  if (error) throw new Error(friendly(error.message))
+}
+/** Google, on the website only (the desktop and Android apps can't receive the redirect back) */
+export async function signInWithGoogle() {
+  const { error } = await sb().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } })
+  if (error) throw new Error(friendly(error.message))
+}
 
 /** Records a usage event for the admin dashboard (signed-in users only; never blocks the app) */
 export function track(type: string, meta: Record<string, unknown> = {}) {
