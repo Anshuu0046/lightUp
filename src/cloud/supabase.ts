@@ -59,6 +59,13 @@ function friendly(message: string) {
   if (/expired|invalid.*otp|token/i.test(message)) return 'That code didn’t work. Check it, or send a new one.'
   return message
 }
+/** Which sign-in options the project has switched on, so the page only offers what works (cached for the visit) */
+let providers: Promise<{ google: boolean }> | undefined
+export function signInOptions() {
+  return providers ??= (url && key
+    ? fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } }).then(r => r.json()).then(d => ({ google: !!d?.external?.google })).catch(() => ({ google: false }))
+    : Promise.resolve({ google: false }))
+}
 function sb() { if (!supabase) throw new Error('Accounts aren’t set up.'); return supabase }
 
 export async function signInWithPassword(email: string, password: string) {

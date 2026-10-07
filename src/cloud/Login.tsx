@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react'
-import { cloudEnabled, confirmSignUp, sendCode, setPassword, signInWithGoogle, signInWithPassword, signOut, signUp, useAccount, verifyCode } from './supabase'
+import { cloudEnabled, confirmSignUp, sendCode, setPassword, signInOptions, signInWithGoogle, signInWithPassword, signOut, signUp, useAccount, verifyCode } from './supabase'
 import { isNative } from '../native'
 import { LitBust } from '../landing/Bust'
 import './login.css'
@@ -26,6 +26,8 @@ export function AuthForm({ start = 'signin', onDone }: { start?: Mode; onDone: (
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
+  const [google, setGoogle] = useState(false)
+  useEffect(() => { if (googleWorks) signInOptions().then(o => setGoogle(o.google)) }, [])
 
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(''); try { await f() } catch (e) { setError(e instanceof Error ? e.message : 'Something went wrong.') } finally { setBusy(false) } }
   const askCode = (why: CodeFor) => run(async () => {
@@ -67,7 +69,7 @@ export function AuthForm({ start = 'signin', onDone }: { start?: Mode; onDone: (
     <p className="auth-sub">{sub}</p>
 
     {step === 'form' && <>
-      {googleWorks && <>
+      {google && <>
         <button type="button" className="auth-google" disabled={busy} onClick={() => run(() => signInWithGoogle(new URLSearchParams(location.hash.split('?')[1] ?? '').get('next') ?? ''))}><GoogleMark /> Continue with Google</button>
         <div className="auth-or"><span>or with email</span></div>
       </>}
