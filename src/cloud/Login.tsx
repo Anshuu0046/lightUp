@@ -54,7 +54,7 @@ export function AuthForm({ start = 'signin', onDone }: { start?: Mode; onDone: (
 
   const switchMode = (m: Mode) => { setMode(m); setStep('form'); setError(''); setNote('') }
   const title = step === 'code' ? 'Check your email' : step === 'reset' ? 'Choose a new password' : mode === 'signin' ? 'Welcome back' : 'Create your account'
-  const sub = step === 'code' ? `We sent a 6-digit code to ${email}.` : step === 'reset' ? 'You’re signed in. Pick a password for next time.'
+  const sub = step === 'code' ? `We sent a code to ${email}. Enter it below.` : step === 'reset' ? 'You’re signed in. Pick a password for next time.'
     : mode === 'signin' ? 'Sign in to keep your projects in sync across your devices.' : 'Free. Save projects to the cloud and pick up on any device.'
 
   return <form className="auth" onSubmit={e => { e.preventDefault(); submit() }} noValidate>
@@ -84,7 +84,7 @@ export function AuthForm({ start = 'signin', onDone }: { start?: Mode; onDone: (
       </label>
     </>}
 
-    {step === 'code' && <label className="auth-field"><span>Code</span><input className="auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="••••••" autoFocus /></label>}
+    {step === 'code' && <label className="auth-field"><span>Code</span><input className="auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="••••••" autoFocus /></label>}
     {step === 'reset' && <label className="auth-field"><span>New password</span><div className="auth-pw">
       <input type={show ? 'text' : 'password'} value={password} onChange={e => setPw(e.target.value)} autoComplete="new-password" placeholder="At least 8 characters" autoFocus />
       <button type="button" onClick={() => setShow(s => !s)} aria-label={show ? 'Hide password' : 'Show password'}>{show ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
@@ -92,7 +92,7 @@ export function AuthForm({ start = 'signin', onDone }: { start?: Mode; onDone: (
 
     {note && <p className="auth-note">{note}</p>}
     {error && <p className="auth-error" role="alert">{error}</p>}
-    <button className="auth-submit" disabled={busy || (step === 'code' && code.length !== 6)}>
+    <button className="auth-submit" disabled={busy || (step === 'code' && code.length < 4)}>
       {busy ? <span className="auth-spin" /> : <>{step === 'code' ? 'Continue' : step === 'reset' ? 'Save password' : mode === 'signin' ? 'Sign in' : 'Create account'} <ArrowRight size={16} /></>}
     </button>
     {step === 'form' && mode === 'signin' && <button type="button" className="auth-alt" disabled={busy} onClick={() => askCode('signin')}>Email me a sign-in code instead</button>}

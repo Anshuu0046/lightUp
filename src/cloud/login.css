@@ -38,7 +38,7 @@
 .auth-pw button:hover { color: var(--ink); background: rgba(255, 255, 255, .06) }
 .auth-link { color: #ffd0a0; font-size: 12.5px; font-weight: 700 }
 .auth-link:hover { text-decoration: underline }
-.auth-field input.auth-code { text-align: center; letter-spacing: .6em; font-size: 26px; font-weight: 800; padding-left: calc(16px + .6em) }
+.auth-field input.auth-code { text-align: center; letter-spacing: .4em; font-size: 24px; font-weight: 800; padding-left: calc(16px + .4em) }
 .auth-strength { display: grid; grid-template-columns: repeat(4, 1fr) auto; align-items: center; gap: 5px; margin-top: 2px }
 .auth-strength i { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .1); transition: background .4s }
 .auth-strength small { margin-left: 8px; font-size: 11.5px; color: #8d8696; min-width: 70px; text-align: right }
