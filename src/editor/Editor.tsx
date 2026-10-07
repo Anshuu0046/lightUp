@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Undo2, Upload, X } from 'lucide-react'
-import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, trackKindFor, uid } from './model'
+import { ArrowLeft, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
+import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, textClip, trackKindFor, uid } from './model'
+import { BASE_TEXT, ensureFont } from './text'
+import { layersAt } from './render'
 import { useHistory } from './history'
 import { clearSaved, importFile, loadProject, saveProject } from './media'
 import { Player } from './player'
@@ -76,6 +78,27 @@ export default function Editor() {
     if (!target) { setToast('Move the playhead over a clip to split it.'); return }
     h.commit({ type: 'split', id: target.id, at: time })
   }
+  const addText = () => {
+    const track = project.tracks.find(t => t.id === 't1') ?? project.tracks.find(t => t.kind === 'visual')!
+    const c = textClip({ ...BASE_TEXT }, track.id, time)
+    h.commit({ type: 'addClip', clip: c, fit: 'near' })
+    setSelected(c.id); setPanel('edit')
+    ensureFont(BASE_TEXT).then(() => player.current?.seek(player.current.time))
+  }
+  // drag on the preview to move the selected layer (or the top one); a plain click plays and pauses
+  const dragOnPreview = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const box = e.currentTarget.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY
+    const onTop = layersAt(project, time)
+    const target = clip && onTop.some(c => c.id === clip.id) ? clip : onTop[onTop.length - 1]
+    let moved = false
+    const move = (ev: PointerEvent) => {
+      if (!moved) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5 || !target) return; moved = true; h.begin(); setSelected(target.id) }
+      const dx = (ev.clientX - x0) / box.width, dy = (ev.clientY - y0) / box.height
+      h.live({ type: 'updateClip', id: target!.id, patch: { transform: { ...target!.transform, x: target!.transform.x + dx, y: target!.transform.y + dy } } })
+    }
+    const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); if (moved) h.end(); else toggle() }
+    addEventListener('pointermove', move); addEventListener('pointerup', up)
+  }
   const remove = () => { if (selected) { h.commit({ type: 'removeClips', ids: [selected] }); setSelected(null) } }
   const duplicate = () => {
     if (!clip) return
@@ -94,6 +117,7 @@ export default function Editor() {
       else if (mod && k === 'y') { e.preventDefault(); h.redo() }
       else if (mod && k === 'd') { e.preventDefault(); duplicate() }
       else if (k === 's' && !mod) split()
+      else if (k === 't' && !mod) { e.preventDefault(); addText() }
       else if (k === 'delete' || k === 'backspace') remove()
       else if (k === 'arrowleft') seek(time - (e.shiftKey ? 1 : FRAME))
       else if (k === 'arrowright') seek(time + (e.shiftKey ? 1 : FRAME))
@@ -138,7 +162,7 @@ export default function Editor() {
 
       <section className="ed-stage">
         <div className="ed-preview" style={{ aspectRatio: ASPECTS[project.aspect].join(' / ') }}>
-          <canvas ref={canvas} onClick={toggle} />
+          <canvas ref={canvas} onPointerDown={dragOnPreview} />
           {!project.clips.length && <div className="ed-hint">Add media, then press <b>+</b> or drag it onto the timeline</div>}
         </div>
         <div className="ed-transport">
@@ -149,8 +173,8 @@ export default function Editor() {
       </section>
 
       <aside className={`ed-side inspector ${panel === 'edit' ? 'show' : ''}`}>
-        {clip && asset ? <>
-          <Inspector project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} />
+        {clip && (asset || clip.text) ? <>
+          <Inspector key={clip.id} project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} />
         </> : <div className="ed-nothing"><b>Nothing selected</b><small>Click a clip on the timeline to adjust it, give it a look, or add effects.</small></div>}
       </aside>
     </div>
@@ -163,6 +187,7 @@ export default function Editor() {
     <div className="ed-tools">
       <button className="ed-btn small" onClick={split} title="Split at playhead (S)"><Scissors size={14} /> Split</button>
       <button className="ed-btn small" onClick={remove} disabled={!selected} title="Delete (Del)"><Trash2 size={14} /> Delete</button>
+      <button className="ed-btn small" onClick={addText} title="Add text (T)"><Type size={14} /> Text</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'visual' })}><Plus size={14} /> Overlay track</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'audio' })}><Plus size={14} /> Audio track</button>
       <span className="ed-spacer" />

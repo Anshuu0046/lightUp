@@ -49,7 +49,7 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
     e.stopPropagation()
     if (e.button !== 0) return
     onSelect(clip.id)
-    const asset = project.assets.find(a => a.id === clip.assetId)!
+    const asset = project.assets.find(a => a.id === clip.assetId)
     const x0 = e.clientX
     const edges = [0, time, ...project.clips.filter(c => c.id !== clip.id).flatMap(c => [c.start, clipEnd(c)])]
     const snap = (t: number) => { for (const s of edges) if (Math.abs(s - t) * pps < SNAP_PX) return s; return t }
@@ -77,7 +77,7 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
         const end = Math.max(snap(clipEnd(clip) + dt), clip.start + MIN_CLIP)
         const out = clip.in + (end - clip.start) * clip.speed
         // photos can be held as long as you like; video and audio stop at the end of the file
-        patch = { out: asset.kind === 'image' ? out : Math.min(out, asset.duration) }
+        patch = { out: !asset || asset.kind === 'image' ? out : Math.min(out, asset.duration) }
       }
       if (!collides(project, { ...clip, ...patch })) edit.live({ type: 'updateClip', id: clip.id, patch })
     }
@@ -123,6 +123,11 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
 }
 
 function ClipView({ clip, asset, pps, selected, onGrab }: { clip: Clip; asset?: Asset; pps: number; selected: boolean; onGrab: (e: React.PointerEvent, c: Clip, m: 'move' | 'left' | 'right') => void }) {
+  if (clip.text) return <div className={`tl-clip text ${selected ? 'selected' : ''}`} style={{ left: clip.start * pps, width: Math.max(4, clipLength(clip) * pps) }} onPointerDown={e => onGrab(e, clip, 'move')} title={clip.text.content}>
+    <i className="tl-trim left" onPointerDown={e => onGrab(e, clip, 'left')} />
+    <span className="tl-label">T  {clip.text.content.replace(/\n/g, ' ')}</span>
+    <i className="tl-trim right" onPointerDown={e => onGrab(e, clip, 'right')} />
+  </div>
   if (!asset) return null
   const style: React.CSSProperties = { left: clip.start * pps, width: Math.max(4, clipLength(clip) * pps) }
   if (asset.thumb) style.backgroundImage = `url(${asset.thumb})`

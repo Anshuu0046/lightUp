@@ -1,5 +1,6 @@
 import { activeAt, type Clip, clipLength, type Project } from './model'
 import { type Fx, type Grade, NO_FX, NO_GRADE } from './looks'
+import { renderText, textMotion } from './text'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
@@ -39,7 +40,7 @@ function filterFor(g: Grade, scale: number) {
  * Draws one source (video frame or image) as a clip at timeline time t: graded, with its effects,
  * fitted inside the frame, then moved, scaled and turned. Preview and export both come through here.
  */
-export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: number, clip: Clip, W: number, H: number, t: number) {
+export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: number, clip: Clip, W: number, H: number, t: number, fitMode: 'contain' | 'natural' = 'contain') {
   if (!srcW || !srcH) return
   const grade = { ...NO_GRADE, ...clip.grade }, fx = { ...NO_FX, ...clip.fx }
   const local = t - clip.start, len = clipLength(clip)
@@ -49,7 +50,7 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
   if (alpha <= 0.001) return
   const scale = W / 1080 // effect sizes are designed at 1080 wide
   const push = 1 + fx.zoom * 0.22 * clamp01(local / Math.max(len, 0.01))
-  const fit = Math.min(W / srcW, H / srcH) * clip.transform.scale * push
+  const fit = (fitMode === 'natural' ? 1 : Math.min(W / srcW, H / srcH)) * clip.transform.scale * push
   const w = Math.max(1, Math.round(srcW * fit)), h = Math.max(1, Math.round(srcH * fit))
   // camera shake: smooth wobble built from a few sine waves, stronger with the setting
   const shakeX = fx.shake ? (Math.sin(t * 17.3) + Math.sin(t * 29.1) * 0.5) * fx.shake * 14 * scale : 0
@@ -111,4 +112,14 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
     const bar = W >= H ? Math.max(0, (H - W / 2.39) / 2) : H * 0.07 // 2.39:1 on wide frames; slim bands on tall ones, so the picture survives
     g.save(); g.fillStyle = '#000'; g.fillRect(0, 0, W, bar); g.fillRect(0, H - bar, W, bar); g.restore()
   }
+}
+
+/** Text clips: render the block at frame scale, animate it in and out, then draw it like any other layer */
+export function drawTextClip(g: Ctx, clip: Clip, W: number, H: number, t: number) {
+  if (!clip.text) return
+  const m = textMotion(clip.text, t - clip.start, clipLength(clip))
+  if (m.alpha <= 0.001) return
+  const block = renderText(clip.text, W, m.chars)
+  const moved: Clip = { ...clip, opacity: clip.opacity * m.alpha, transform: { ...clip.transform, scale: clip.transform.scale * m.scale, y: clip.transform.y + m.dy } }
+  drawClip(g, block, block.width, block.height, moved, W, H, t, 'natural')
 }

@@ -4,7 +4,8 @@ import {
 } from 'mediabunny'
 import { activeAt, ASPECTS, type Clip, clipEnd, clipLength, projectDuration, type Project, sourceTime } from './model'
 import { fileOf } from './media'
-import { drawClip, layersAt } from './render'
+import { drawClip, drawTextClip, layersAt } from './render'
+import { ensureFont } from './text'
 
 export type ExportOptions = { height: 720 | 1080; fps: 30 | 60 }
 const SAMPLE_RATE = 48000
@@ -55,6 +56,7 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
       const wanted = times.filter(t => activeAt(clip, t)).map(t => first + sourceTime(clip, t))
       streams.set(clip.id, new CanvasSink(track, { poolSize: 2 }).canvasesAtTimestamps(wanted))
     }
+    for (const c of p.clips) if (c.text) await ensureFont(c.text)
     const images = new Map<string, ImageBitmap>()
     for (const a of p.assets) if (a.kind === 'image' && p.clips.some(c => c.assetId === a.id)) images.set(a.id, await createImageBitmap(fileOf(a.id)!))
 
@@ -63,6 +65,7 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
       const t = times[i]
       g.fillStyle = '#000'; g.fillRect(0, 0, W, H)
       for (const clip of layersAt(p, t)) {
+        if (clip.text) { drawTextClip(g, clip, W, H, t); continue }
         const asset = p.assets.find(a => a.id === clip.assetId)!
         if (asset.kind === 'image') { const b = images.get(asset.id)!; drawClip(g, b, b.width, b.height, clip, W, H, t) }
         else if (asset.kind === 'video') {

@@ -1,5 +1,6 @@
 /** The editor's document: media you imported, tracks, and clips placed on them. All times are in seconds. */
 import type { Fx, Grade } from './looks'
+import type { TextSpec } from './text'
 
 export type AssetKind = 'video' | 'image' | 'audio'
 export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string }
@@ -27,6 +28,8 @@ export type Clip = {
   grade?: Grade
   fx?: Fx
   preset?: string
+  /** set on text clips, which have no media file behind them */
+  text?: TextSpec
 }
 
 export type Aspect = '9:16' | '16:9' | '1:1' | '4:5'
@@ -42,6 +45,7 @@ export function newProject(): Project {
   return {
     name: 'Untitled video', aspect: '9:16', assets: [], clips: [],
     tracks: [
+      { id: 't1', kind: 'visual', name: 'Text', muted: false, hidden: false },
       { id: 'v2', kind: 'visual', name: 'Overlay', muted: false, hidden: false },
       { id: 'v1', kind: 'visual', name: 'Main', muted: false, hidden: false },
       { id: 'a1', kind: 'audio', name: 'Music', muted: false, hidden: false },
@@ -120,6 +124,13 @@ export function freeSpot(p: Project, trackId: string, from: number, length: numb
 /** Clips that would overlap `c` if it were placed as given */
 export const collides = (p: Project, c: Clip) =>
   p.clips.some(o => o.id !== c.id && o.trackId === c.trackId && c.start < clipEnd(o) - 1e-6 && clipEnd(c) > o.start + 1e-6)
+
+export const TEXT_ASSET = 'text'
+export const TEXT_SECONDS = 3
+
+export function textClip(spec: TextSpec, trackId: string, start: number): Clip {
+  return { id: uid(), assetId: TEXT_ASSET, trackId, start, in: 0, out: TEXT_SECONDS, speed: 1, volume: 0, opacity: 1, transform: { x: 0.5, y: 0.72, scale: 1, rotation: 0 }, text: spec }
+}
 
 export function clipFor(asset: Asset, trackId: string, start: number): Clip {
   const length = asset.kind === 'image' ? IMAGE_DEFAULT_SECONDS : asset.duration

@@ -1,6 +1,6 @@
 import { activeAt, ASPECTS, type Clip, clipEnd, projectDuration, type Project, sourceTime } from './model'
 import { urlOf } from './media'
-import { drawClip, layersAt } from './render'
+import { drawClip, drawTextClip, layersAt } from './render'
 
 const PREVIEW_SCALE = 0.5 // preview at half the export size: smooth on laptops, sharp enough to judge
 
@@ -58,6 +58,7 @@ export class Player {
     const g = c.getContext('2d')!
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H)
     for (const clip of layersAt(this.project, this.time)) {
+      if (clip.text) { drawTextClip(g, clip, W, H, this.time); continue }
       const asset = this.project.assets.find(a => a.id === clip.assetId)
       if (!asset) continue
       if (asset.kind === 'image') {
