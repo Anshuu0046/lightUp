@@ -42,7 +42,7 @@ export function rigFor(look: Look, face: Face | undefined, spot: Spot): Rig {
   const fx = face?.x ?? 0.5, fy = face?.y ?? 0.45
   // a ring light's reflection is crisp and white; other lights read as softer glints
   const catchOn = !look.catchlight || look.style === 'natural' ? 0 : look.style === 'ring' ? 0.75 + k * 0.25 : 0.3 + k * 0.5
-  if (look.style === 'bulb') return { ...spot, falloff: 0.85, intensity: 1.2 + k * 4.5, exposure: 0.42, relief: 0.7, specular: 0.2, shadow: 0.4, occlusion: 0.55, bulb: 1, r, g, b, catch: catchOn }
+  if (look.style === 'bulb') return { ...spot, falloff: 0.5, intensity: 2 + k * 7, exposure: 0.42, relief: 0.7, specular: 0.2, shadow: 0.4, occlusion: 0.55, bulb: 1, r, g, b, catch: catchOn }
   if (look.style === 'ring') return { x: fx, y: fy - 0.05, z: 0.8, falloff: 0.45, intensity: 3 + k * 9, exposure: 0.62 - k * 0.1, relief: 0.45, specular: 0.14, shadow: 0.08, occlusion: 0.3, bulb: 0, r, g, b, catch: catchOn }
   if (look.style === 'window') return { x: fx - 0.6, y: fy - 0.15, z: 0.55, falloff: 0.9, intensity: 3 + k * 9, exposure: 0.42 - k * 0.08, relief: 0.7, specular: 0.14, shadow: 0.3, occlusion: 0.5, bulb: 0, r, g, b, catch: catchOn }
   return { x: fx, y: fy, z: 0.8, falloff: 0.45, intensity: 0, exposure: 1, relief: 0.45, specular: 0, shadow: 0, occlusion: 0, bulb: 0, r, g, b, catch: 0 }

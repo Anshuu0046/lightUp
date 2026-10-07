@@ -121,9 +121,12 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
   useEffect(() => {
     const v = video.current!, c = canvas.current!, o = overlay.current!
     v.srcObject = stream; v.play().catch(() => {})
-    let stopped = false, runtime: { draw: (v: HTMLVideoElement, s: Record<string, unknown>) => void; destroy: () => void } | undefined
+    let stopped = false, runtime: { draw: (v: HTMLVideoElement, s: Record<string, unknown>, skipDepth?: boolean) => void; destroy: () => void; gpuMs: number } | undefined
     let tracker: Awaited<ReturnType<typeof createFaceTracker>> | undefined, face: Face | undefined, frame = 0
     let hands: Awaited<ReturnType<typeof createHandTracker>> | undefined, loadingHands = false, lastHand = 0, hinted = false
+    // phones: run the depth model on every Nth frame (N adapts to the GPU) and alternate face and hand tracking
+    const phone = matchMedia('(pointer: coarse)').matches
+    let frameNo = 0, depthEvery = phone ? 2 : 1
     const rig: Rig = rigFor(lookRef.current, undefined, spot.current)
     const auto = new AutoLight()
     let corr = NEUTRAL
@@ -143,18 +146,28 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     const tick = (now: number) => {
       if (stopped) return
       if (v.readyState >= 2 && v.videoWidth) {
-        const found = tracker?.detect(v, now)
-        if (found) face = found
-        if (lookRef.current.style === 'bulb') {
+        frameNo++
+        const bulbMode = lookRef.current.style === 'bulb'
+        const faceTurn = !phone || !bulbMode || frameNo % 2 === 1
+        const found = faceTurn ? tracker?.detect(v, now) : face
+        if (faceTurn) face = found ?? face
+        if (bulbMode && (!phone || frameNo % 2 === 0 || !face)) {
           if (!hands && !loadingHands) { loadingHands = true; createHandTracker().then(h => { hands = h }).catch(() => {}) }
           const hand = hands?.detect(v, now)
           // a bigger hand is closer to the camera, so the bulb comes forward with it, always just in front of the palm
           if (hand) { spot.current = { x: hand.x, y: hand.y, z: 0.18 + Math.min(0.3, Math.max(0, (hand.size - 0.08) * 1.5)) }; lastHand = now; placed.current = true }
           const wantHint = !placed.current && now - lastHand > 2500
           if (wantHint !== hinted) { hinted = wantHint; setHandHint(wantHint) }
-        } else if (hinted) { hinted = false; setHandHint(false) }
-        glide(rig, rigFor(lookRef.current, face, spot.current), lookRef.current.style === 'bulb' ? 0.35 : 0.14)
-        runtime?.draw(v, { lightPosition: [rig.x, rig.y], lightZ: rig.z, falloff: rig.falloff, lightColor: [rig.r + (1 - rig.r) * corr.whiten, rig.g + (1 - rig.g) * corr.whiten, rig.b + (1 - rig.b) * corr.whiten], intensity: rig.intensity * corr.gain, exposure: rig.exposure * (lookRef.current.style === 'bulb' ? 1 : Math.min(2.2, Math.max(0.4, Math.sqrt(corr.gain)))), relief: rig.relief, specular: rig.specular, shadow: rig.shadow, occlusion: rig.occlusion, bulb: rig.bulb, mirror: false })
+        } else if (!bulbMode && hinted) { hinted = false; setHandHint(false) }
+        glide(rig, rigFor(lookRef.current, face, spot.current), bulbMode ? 0.6 : 0.14) // the hand filter already smooths the bulb
+        if (runtime && frameNo % 30 === 0) {
+          const gpu = runtime.gpuMs
+          if (gpu > 30 && depthEvery < 4) depthEvery++
+          else if (gpu && gpu < 14 && depthEvery > 1) depthEvery--
+        }
+        // a real filament never burns perfectly still: a 2-3% shimmer
+        const shimmer = bulbMode ? 1 + 0.018 * Math.sin(now * 0.0131) + 0.012 * Math.sin(now * 0.0377 + 1.3) : 1
+        runtime?.draw(v, { lightPosition: [rig.x, rig.y], lightZ: rig.z, falloff: rig.falloff, lightColor: [rig.r + (1 - rig.r) * corr.whiten, rig.g + (1 - rig.g) * corr.whiten, rig.b + (1 - rig.b) * corr.whiten], intensity: rig.intensity * corr.gain * shimmer, exposure: rig.exposure * (lookRef.current.style === 'bulb' ? 1 : Math.min(2.2, Math.max(0.4, Math.sqrt(corr.gain)))), relief: rig.relief, specular: rig.specular, shadow: rig.shadow, occlusion: rig.occlusion, bulb: rig.bulb, mirror: false }, frameNo % depthEvery !== 0)
         corr = runtime ? auto.update(c, v, found ? face : undefined, lookRef.current.style, lookRef.current.brightness, lookRef.current.auto) : NEUTRAL
         const W = Math.min(1280, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth)
         if (o.width !== W || o.height !== H) { o.width = W; o.height = H }

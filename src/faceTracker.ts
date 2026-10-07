@@ -69,21 +69,56 @@ function loadHands() {
   }).catch(e => { handModel = undefined; throw e })
 }
 
+/**
+ * One Euro filter: smooths hard while something is nearly still (no jitter) and eases off as it moves fast (no lag).
+ * minCutoff sets how steady it is at rest; beta how quickly it follows real motion.
+ */
+class OneEuro {
+  private x: number | undefined
+  private dx = 0
+  private t = 0
+  constructor(private minCutoff: number, private beta: number, private dCutoff = 1) {}
+  filter(v: number, ms: number) {
+    if (this.x === undefined) { this.x = v; this.t = ms; return v }
+    const dt = Math.max(0.001, (ms - this.t) / 1000); this.t = ms
+    const a = (cutoff: number) => 1 / (1 + 1 / (2 * Math.PI * cutoff * dt))
+    this.dx += a(this.dCutoff) * ((v - this.x) / dt - this.dx)
+    this.x += a(this.minCutoff + this.beta * Math.abs(this.dx)) * (v - this.x)
+    return this.x
+  }
+}
+
+/** Keeps the last position this long when the hand is briefly lost, so the bulb doesn't drop or jump */
+const HOLD_MS = 700
+
 export async function createHandTracker() {
   const model = await loadHands()
-  let last: Hand | undefined, lastTime = -1
+  const fx = new OneEuro(0.25, 5), fy = new OneEuro(0.25, 5), fs = new OneEuro(0.12, 0.4)
+  let last: Hand | undefined, lastSeen = 0, lastTime = -1
+  let pending: Hand | null = null
   return {
     detect(video: HTMLVideoElement, now: number): Hand | undefined {
       if (video.readyState < 2 || video.currentTime === lastTime) return last
       lastTime = video.currentTime
       const m = model.detectForVideo(video, now).landmarks[0]
-      if (!m) return (last = undefined)
-      // palm centre from the wrist and knuckles, nudged toward the fingers where a bulb would be held
+      if (!m) { if (now - lastSeen > HOLD_MS) last = undefined; return last }
+      // palm centre from the wrist and knuckles (the steadiest points), nudged toward the fingers where a bulb is held
       const palm = [0, 5, 9, 13, 17].map(i => m[i])
-      const cx = palm.reduce((s, p) => s + p.x, 0) / palm.length, cy = palm.reduce((s, p) => s + p.y, 0) / palm.length
+      const cx = palm.reduce((a, p) => a + p.x, 0) / palm.length, cy = palm.reduce((a, p) => a + p.y, 0) / palm.length
       const aspect = video.videoWidth / video.videoHeight
       const raw: Hand = { x: cx + (m[9].x - cx) * 0.35, y: cy + (m[9].y - cy) * 0.35, size: Math.hypot(m[0].x - m[9].x, (m[0].y - m[9].y) / aspect) }
-      return (last = last ? { x: follow(last.x, raw.x, 30), y: follow(last.y, raw.y, 30), size: follow(last.size, raw.size) } : raw)
+      // a sudden leap is usually a misdetection (the other hand, a face): only accept it if it's seen twice in a row
+      if (last && Math.hypot(raw.x - last.x, raw.y - last.y) > 0.22) {
+        if (!pending || Math.hypot(raw.x - pending.x, raw.y - pending.y) > 0.08) { pending = raw; return last }
+      }
+      pending = null
+      lastSeen = now
+      const x = fx.filter(raw.x, now), y = fy.filter(raw.y, now), size = fs.filter(raw.size, now)
+      // soft dead zone: tiny tremors don't move the bulb at all, real moves pass straight through
+      const gap = last ? Math.hypot(x - last.x, y - last.y) : 1
+      const give = Math.min(1, Math.max(0, (gap - 0.002) / 0.006))
+      last = last ? { x: last.x + (x - last.x) * give, y: last.y + (y - last.y) * give, size } : { x, y, size }
+      return last
     },
   }
 }

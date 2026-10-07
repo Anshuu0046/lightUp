@@ -7,7 +7,9 @@ import { snapAfterRender } from './capture'
 
 const MODEL_URL='/models/depth.depthart'
 export class DepthRuntime {
-  private canvas:any; private root:any; private plan:any; private renderer:any; private ready=false
+  private canvas:any; private root:any; private plan:any; private renderer:any; private ready=false; private frames=0
+  /** smoothed GPU time per frame, in ms (measured every few frames) */
+  gpuMs=0
   async init(canvas:HTMLCanvasElement){
     this.canvas=canvas
     this.root=await tgpu.init({device:{optionalFeatures:['shader-f16']}})
@@ -17,10 +19,11 @@ export class DepthRuntime {
     this.renderer=new DepthRelightingRenderer(this.root,canvas);await this.renderer.initAsync();this.renderer.attach(this.plan);this.ready=true
   }
   /** Relights one video frame with full control over the light rig */
-  draw(source:HTMLVideoElement, settings:Record<string,unknown>){
+  draw(source:HTMLVideoElement, settings:Record<string,unknown>, skipDepth=false){
     if(!this.ready)return
     this.renderer.update(settings)
-    const frame=new VideoFrame(source,{timestamp:performance.now()*1000});try{this.renderer.render({source:frame,uvTransform:d.mat2x2f.identity(),swapAxes:false})}finally{frame.close()}
+    const frame=new VideoFrame(source,{timestamp:performance.now()*1000});try{this.renderer.render({source:frame,uvTransform:d.mat2x2f.identity(),swapAxes:false},{skipDepth})}finally{frame.close()}
+    if(!skipDepth&&++this.frames%12===0){const t0=performance.now();this.root.device.queue.onSubmittedWorkDone().then(()=>{const ms=performance.now()-t0;this.gpuMs=this.gpuMs?this.gpuMs*0.7+ms*0.3:ms})}
     snapAfterRender(this.canvas)
   }
   destroy(){this.renderer?.destroy();this.plan?.destroy();this.root?.destroy()}

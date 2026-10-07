@@ -52,6 +52,10 @@ const EDGE_STEP = 3;
 const EDGE_COLOR_SIGMA = 0.1;
 const EDGE_SPATIAL_SIGMA = 3.2;
 
+/** how far the warm glow of light passing through skin reaches around the bulb */
+const SUBSURFACE_REACH = 0.075;
+const SUBSURFACE_GAIN = 0.9;
+
 const BULB_WORLD_RADIUS = 0.05;
 const BULB_CAMERA_Z = 2;
 const BULB_REFERENCE_Z = 0.42;
@@ -508,6 +512,11 @@ export const relightFragment = tgpu.fragmentFn({
       occlusion *
       relightLayout.$.params.specular *
       relightLayout.$.params.intensity);
+  // skin right next to a bulb lets light through and glows orange-red (fingers around a torch)
+  const nearBulb = std.exp(0 - std.length(wuv - relightLayout.$.params.lightPosition) / SUBSURFACE_REACH);
+  const sameDepth = std.saturate(1 - (relightLayout.$.params.lightZ - surfaceZ(surface.w)) / 0.6);
+  const skin = std.saturate(cameraColor.x - cameraColor.z) * 3;
+  lit += albedo * d.vec3f(1, 0.38, 0.2) * tint * (nearBulb * sameDepth * std.min(skin, d.f32(1)) * relightLayout.$.params.bulb * relightLayout.$.params.intensity * SUBSURFACE_GAIN);
   const presence = bulbPresence() * relightLayout.$.params.bulb;
   const bulb = bulbSurface(wuv, tint, surface.w);
   lit = std.mix(lit, bulb.xyz * presence, bulb.w * presence);
