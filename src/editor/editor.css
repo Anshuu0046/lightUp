@@ -104,6 +104,22 @@
 .ed-cut-stage { display: grid; place-items: center; margin-bottom: 12px; padding: 10px; border-radius: 12px; background: repeating-conic-gradient(#2a2a33 0 25%, #1c1c23 0 50%) 0 0 / 20px 20px }
 .ed-cut-stage canvas { max-width: 100%; max-height: 52vh; touch-action: none }
 .ed-chips button svg { vertical-align: -2px; margin-right: 3px }
+.ed-sources { margin-bottom: 12px }
+.ed-sources button { flex: 1 }
+.ed-sources.small button { padding: 5px 8px; font-size: 11.5px }
+.ed-card-title { display: block; font-size: 13px; margin-bottom: 4px }
+.ed-card .ed-input { margin: 10px 0 0 }
+.ed-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; margin-bottom: 10px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line); color: var(--muted) }
+.ed-search input { flex: 1; min-width: 0; padding: 9px 0; background: none; border: 0; outline: none; color: var(--ink); font-size: 13px }
+.ed-stickers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; transition: opacity .2s }
+.ed-stickers.loading { opacity: .5 }
+.ed-stickers > button, .ed-mine > button:first-child { position: relative; width: 100%; aspect-ratio: 1; padding: 4px; border-radius: 10px; background: repeating-conic-gradient(#24242c 0 25%, #1c1c23 0 50%) 0 0 / 14px 14px; display: grid; place-items: center; overflow: hidden }
+.ed-stickers img { max-width: 100%; max-height: 100%; object-fit: contain }
+.ed-stickers > button:hover { outline: 2px solid var(--warm) }
+.ed-mine { position: relative }
+.ed-mine:hover .ed-del { opacity: 1 }
+.ed-spin { position: absolute; width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .3); border-top-color: #fff; animation: spin .8s linear infinite }
+.ed-attribution { margin: 10px 0 0; text-align: center; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: var(--faint); text-transform: uppercase }
 .ed-tabs { display: none }
 
 /* ---------- timeline ---------- */

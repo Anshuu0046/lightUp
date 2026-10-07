@@ -6,6 +6,7 @@ import { layersAt } from './render'
 import { CaptionsDialog } from './CaptionsDialog'
 import { SoundsPanel } from './SoundsPanel'
 import { CutoutEditor } from './CutoutEditor'
+import { StickersPanel } from './StickersPanel'
 import { DEFAULT_DUCKING } from './audio'
 import { useHistory } from './history'
 import { clearSaved, importFile, loadProject, saveProject } from './media'
@@ -32,7 +33,7 @@ export default function Editor() {
   const [captioning, setCaptioning] = useState(false)
   const [refining, setRefining] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  const [library, setLibrary] = useState<'media' | 'sounds'>('media')
+  const [library, setLibrary] = useState<'media' | 'sounds' | 'stickers'>('media')
   const [panel, setPanel] = useState<'media' | 'edit' | null>(null) // phones show at most one side panel, so the preview gets the room
   const fileInput = useRef<HTMLInputElement>(null)
   const clip = project.clips.find(c => c.id === selected) ?? null
@@ -133,6 +134,14 @@ export default function Editor() {
       setSelected(c.id)
     } catch { setToast('Couldn’t add that sound.') }
   }
+  const addSticker = async (file: File) => {
+    const asset = await importFile(file)
+    h.commit({ type: 'addAsset', asset })
+    const track = project.tracks.find(t => t.id === 'v2') ?? project.tracks.find(t => t.kind === 'visual')!
+    const c = { ...clipFor(asset, track.id, time), transform: { x: 0.5, y: 0.35, scale: 0.42, rotation: 0 } }
+    h.commit({ type: 'addClip', clip: c, fit: 'near' })
+    setSelected(c.id)
+  }
   const remove = () => { if (selected) { h.commit({ type: 'removeClips', ids: [selected] }); setSelected(null) } }
   const duplicate = () => {
     if (!clip) return
@@ -181,11 +190,12 @@ export default function Editor() {
 
     <div className="ed-main">
       <aside className={`ed-side media ${panel === 'media' ? 'show' : ''}`}>
-        <div className="ed-segment two" role="tablist">
+        <div className="ed-segment" role="tablist">
           <button role="tab" aria-selected={library === 'media'} className={library === 'media' ? 'on' : ''} onClick={() => setLibrary('media')}>Media</button>
           <button role="tab" aria-selected={library === 'sounds'} className={library === 'sounds' ? 'on' : ''} onClick={() => setLibrary('sounds')}>Sounds</button>
+          <button role="tab" aria-selected={library === 'stickers'} className={library === 'stickers' ? 'on' : ''} onClick={() => setLibrary('stickers')}>Stickers</button>
         </div>
-        {library === 'sounds' ? <SoundsPanel ducking={project.ducking ?? DEFAULT_DUCKING} onDucking={d => h.commit({ type: 'setDucking', ducking: d })} onAdd={addSound} /> : <>
+        {library === 'stickers' ? <StickersPanel onAdd={addSticker} onError={setToast} /> : library === 'sounds' ? <SoundsPanel ducking={project.ducking ?? DEFAULT_DUCKING} onDucking={d => h.commit({ type: 'setDucking', ducking: d })} onAdd={addSound} /> : <>
         <div className="ed-side-head"><b>Media</b><button className="ed-btn small" onClick={() => fileInput.current?.click()}><Upload size={14} /> Import</button></div>
         <input ref={fileInput} type="file" multiple accept="video/*,image/*,audio/*" hidden onChange={e => { addFiles(e.target.files ?? []); e.target.value = '' }} />
         {project.assets.length === 0

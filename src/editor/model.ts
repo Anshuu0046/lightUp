@@ -4,7 +4,7 @@ import type { TextSpec } from './text'
 import type { ClipAudio, Ducking } from './audio'
 
 export type AssetKind = 'video' | 'image' | 'audio'
-export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string; /** waveform picture for sound */ wave?: string }
+export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string; /** waveform picture for sound */ wave?: string; /** GIFs and animated stickers loop */ animated?: boolean }
 
 export type TrackKind = 'visual' | 'audio'
 export type Track = { id: string; kind: TrackKind; name: string; muted: boolean; hidden: boolean }
@@ -158,6 +158,6 @@ export function textClip(spec: TextSpec, trackId: string, start: number): Clip {
 }
 
 export function clipFor(asset: Asset, trackId: string, start: number): Clip {
-  const length = asset.kind === 'image' ? IMAGE_DEFAULT_SECONDS : asset.duration
+  const length = asset.kind === 'image' ? IMAGE_DEFAULT_SECONDS : asset.duration // photos and stickers (animated ones loop)
   return { id: uid(), assetId: asset.id, trackId, start, in: 0, out: length, speed: 1, volume: 1, opacity: 1, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0 } }
 }

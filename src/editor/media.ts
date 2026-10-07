@@ -1,5 +1,6 @@
 import { type Asset, type AssetKind, type Project, uid } from './model'
 import { waveImage } from './audio'
+import { frameCount } from './anim'
 
 /** The actual files behind assets. Kept outside the project document so undo history stays small. */
 const files = new Map<string, { file: Blob; url: string }>()
@@ -31,7 +32,8 @@ export async function importFile(f: File): Promise<Asset> {
   const base = { id, kind, name: f.name.replace(/\.[^.]+$/, ''), duration: 0, width: 0, height: 0, hasAudio: kind !== 'image', thumb: '' }
   if (kind === 'image') {
     const img = new Image(); img.src = url; await once(img, 'load')
-    return { ...base, width: img.naturalWidth, height: img.naturalHeight, thumb: url }
+    const anim = await frameCount(f)
+    return { ...base, width: img.naturalWidth, height: img.naturalHeight, thumb: url, animated: anim.frames > 1, duration: anim.seconds }
   }
   if (kind === 'audio') {
     const a = new Audio(); a.preload = 'metadata'; a.src = url; await once(a, 'loadedmetadata')

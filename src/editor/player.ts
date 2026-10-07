@@ -3,6 +3,8 @@ import { urlOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { clipChain, clipGainAt, envelopeAt, isMusicTrack, NO_AUDIO } from './audio'
 import { loadSegmenter, segmenterReady } from './segment'
+import { frameAt, loadAnimation } from './anim'
+import { fileOf } from './media'
 
 const PREVIEW_SCALE = 0.5 // preview at half the export size: smooth on laptops, sharp enough to judge
 
@@ -74,7 +76,11 @@ export class Player {
       if (clip.text) { drawTextClip(g, clip, W, H, this.time); continue }
       const asset = this.project.assets.find(a => a.id === clip.assetId)
       if (!asset) continue
-      if (asset.kind === 'image') {
+      if (asset.kind === 'image' && asset.animated) {
+        loadAnimation(asset.id, fileOf(asset.id)!, () => !this.playing && this.draw())
+        const f = frameAt(asset.id, this.time - clip.start)
+        if (f) drawClip(g, f, f.width, f.height, clip, W, H, this.time)
+      } else if (asset.kind === 'image') {
         const img = this.image(asset.id)
         if (img.complete) drawClip(g, img, img.naturalWidth, img.naturalHeight, clip, W, H, this.time)
       } else if (asset.kind === 'video') {

@@ -8,6 +8,7 @@ import { fileOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { ensureFont } from './text'
 import { loadSegmenter } from './segment'
+import { frameAt, loadAnimation } from './anim'
 
 export type ExportOptions = { height: 720 | 1080; fps: 30 | 60 }
 const SAMPLE_RATE = 48000
@@ -61,7 +62,7 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
     for (const c of p.clips) if (c.text) await ensureFont(c.text)
     if (p.clips.some(c => c.cutout)) await loadSegmenter()
     const images = new Map<string, ImageBitmap>()
-    for (const a of p.assets) if (a.kind === 'image' && p.clips.some(c => c.assetId === a.id)) images.set(a.id, await createImageBitmap(fileOf(a.id)!))
+    for (const a of p.assets) if (a.kind === 'image' && p.clips.some(c => c.assetId === a.id)) { if (a.animated) await loadAnimation(a.id, fileOf(a.id)!); else images.set(a.id, await createImageBitmap(fileOf(a.id)!)) }
 
     for (let i = 0; i < frames; i++) {
       if (signal.aborted) throw new DOMException('Export cancelled', 'AbortError')
@@ -70,7 +71,7 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
       for (const clip of layersAt(p, t)) {
         if (clip.text) { drawTextClip(g, clip, W, H, t); continue }
         const asset = p.assets.find(a => a.id === clip.assetId)!
-        if (asset.kind === 'image') { const b = images.get(asset.id)!; drawClip(g, b, b.width, b.height, clip, W, H, t) }
+        if (asset.kind === 'image') { const b = asset.animated ? frameAt(asset.id, t - clip.start) : images.get(asset.id); if (b) drawClip(g, b, b.width, b.height, clip, W, H, t) }
         else if (asset.kind === 'video') {
           const next = await streams.get(clip.id)?.next()
           const frame = next && !next.done ? next.value : null
