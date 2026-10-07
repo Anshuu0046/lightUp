@@ -3,6 +3,7 @@ import { Captions } from 'lucide-react'
 import { CAPTION_TRACK, type CaptionOptions, captionClips, LANGUAGES, MODELS, type Progress, restyle, transcribe } from './captions'
 import { type Clip, projectDuration, type Project, type Track } from './model'
 import { BASE_TEXT, TEXT_TEMPLATES } from './text'
+import { track } from '../cloud/supabase'
 
 const STYLES = ['caption', 'box', 'highlight', 'meme', 'pill', 'neon', 'bold']
 const LENGTHS = [{ words: 2, label: 'Punchy (1–2 words)' }, { words: 4, label: 'Standard (3–4 words)' }, { words: 8, label: 'Full lines' }]
@@ -26,6 +27,7 @@ export function CaptionsDialog({ project, onClose, onApply }: { project: Project
       const clips = captionClips(chunks, o, projectDuration(project))
       if (!clips.length) throw new Error('No speech was found. Check the language and that the voice track isn’t muted.')
       onApply(CAPTION_TRACK, clips)
+      track('captions', { language: o.language, quality: o.quality, count: clips.length })
       onClose()
     } catch (e) { setError(e instanceof Error ? e.message : 'Captions failed.') }
     finally { setProgress(null) }

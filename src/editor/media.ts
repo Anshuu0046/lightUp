@@ -6,6 +6,8 @@ import { frameCount } from './anim'
 const files = new Map<string, { file: Blob; url: string }>()
 
 export const fileOf = (id: string) => files.get(id)?.file
+/** Registers a file that came from elsewhere (the cloud) under an asset id; returns its local URL */
+export const adoptFile = (id: string, file: Blob) => { remember(id, file); return urlOf(id) }
 export const urlOf = (id: string) => files.get(id)?.url ?? ''
 
 function remember(id: string, file: Blob) {

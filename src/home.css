@@ -14,5 +14,6 @@
 .choice-art { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; color: #141218 }
 .choice-art.art-live { background: linear-gradient(135deg, #ffe2bd, #ffb76b); box-shadow: 0 8px 26px rgba(255, 170, 90, .35) }
 .choice-art.art-edit { background: linear-gradient(135deg, #e4ddff, #9d8cff); box-shadow: 0 8px 26px rgba(157, 140, 255, .35) }
+.home-account { position: absolute; top: 18px; right: 18px; z-index: 2 }
 .home-loading { height: 100%; display: grid; place-items: center; color: var(--muted) }
 @media (max-width: 640px) { .home-choices { grid-template-columns: 1fr } .home-brand { margin-bottom: 24px } }

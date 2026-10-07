@@ -7,7 +7,24 @@ export type StickerResult = { id: string; title: string; preview: string; full: 
 export type Kind = 'stickers' | 'gifs'
 
 const KEY_STORE = 'lightup-giphy-key'
-export const giphyKey = () => (import.meta.env.VITE_GIPHY_KEY as string | undefined) || localStorage.getItem(KEY_STORE) || ''
+let sharedKey = ''
+export const giphyKey = () => (import.meta.env.VITE_GIPHY_KEY as string | undefined) || localStorage.getItem(KEY_STORE) || sharedKey
+/** Picks up the GIPHY key an admin saved in the admin panel (signed-in users only) */
+export async function loadSharedKey() {
+  const { supabase } = await import('../cloud/supabase')
+  if (!supabase || giphyKey()) return giphyKey()
+  const { data } = await supabase.from('app_config').select('value').eq('key', 'giphy_key').maybeSingle()
+  sharedKey = (data as { value: string } | null)?.value ?? ''
+  return giphyKey()
+}
+
+/** Stickers admins published to everyone */
+export async function libraryStickers(): Promise<{ id: string; name: string; url: string }[]> {
+  const { supabase } = await import('../cloud/supabase')
+  if (!supabase) return []
+  const { data } = await supabase.from('stickers').select('id,name,path').eq('published', true).order('created_at', { ascending: false }).limit(300)
+  return ((data ?? []) as { id: string; name: string; path: string }[]).map(s => ({ id: s.id, name: s.name, url: supabase.storage.from('stickers').getPublicUrl(s.path).data.publicUrl }))
+}
 export const setGiphyKey = (k: string) => { try { k ? localStorage.setItem(KEY_STORE, k.trim()) : localStorage.removeItem(KEY_STORE) } catch { /* private mode */ } }
 
 type GiphyItem = { id: string; title: string; images: Record<string, { url?: string; webp?: string; width?: string }> }

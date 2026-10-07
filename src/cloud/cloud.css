@@ -1,0 +1,30 @@
+.cl-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, .06); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none; white-space: nowrap }
+.cl-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .1) }
+.cl-btn:disabled { opacity: .55; cursor: progress }
+.cl-btn.primary { background: var(--ink); color: #141218; border-color: transparent }
+.cl-btn.ghost { background: transparent; border-color: transparent; color: var(--muted) }
+.cl-btn.block { width: 100%; margin-top: 10px; padding: 12px }
+.cl-btn.danger { color: #ff8f8f }
+.cl-account { position: relative }
+.cl-avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #141218; background: var(--glow) }
+.cl-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; min-width: 230px; padding: 6px; border-radius: 14px; background: #17171f; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0, 0, 0, .55) }
+.cl-menu-head { display: flex; flex-direction: column; padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px }
+.cl-menu-head b { font-size: 13px } .cl-menu-head small { color: var(--faint); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis }
+.cl-menu a, .cl-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none; text-align: left }
+.cl-menu a:hover, .cl-menu button:hover { background: rgba(255, 255, 255, .06) }
+.cl-back { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .6); backdrop-filter: blur(6px) }
+.cl-modal { width: min(400px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 22px; border-radius: 22px; background: #15151c; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .6) }
+.cl-modal.wide { width: min(560px, 100%) }
+.cl-modal h2 { margin: 0 0 6px; font: 400 30px/1.1 var(--serif) }
+.cl-modal p { color: var(--muted); font-size: 13px; margin: 0 0 14px }
+.cl-input { width: 100%; padding: 12px 14px; border-radius: 12px; background: #1d1d26; border: 1px solid var(--line); font-size: 15px; color: var(--ink) }
+.cl-input:focus { outline: none; border-color: rgba(255, 193, 135, .6) }
+.cl-input.code { text-align: center; letter-spacing: .5em; font-size: 22px; font-weight: 700 }
+.cl-error { color: #ffb4a8 !important; margin-top: 10px !important }
+.cl-list { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow: auto }
+.cl-list li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line) }
+.cl-list li.current { border-color: rgba(255, 193, 135, .5) }
+.cl-list span { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; font-weight: 700 }
+.cl-list small { color: var(--faint); font-weight: 500; font-size: 11.5px }
+.cl-bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .08); overflow: hidden; margin: 10px 0 }
+.cl-bar i { display: block; height: 100%; background: var(--glow); transition: width .2s }

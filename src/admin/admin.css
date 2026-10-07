@@ -1,0 +1,62 @@
+.ad { position: fixed; inset: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); background: #0a0a0e; color: var(--ink) }
+.ad-nav { display: flex; flex-direction: column; gap: 2px; padding: 18px 12px; border-right: 1px solid var(--line); background: #111117 }
+.ad-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; margin-bottom: 18px }
+.ad-title { font: 400 30px/1 var(--serif); margin: 0 8px 14px }
+.ad-nav button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); text-align: left }
+.ad-nav button:hover { background: rgba(255, 255, 255, .05); color: var(--ink) }
+.ad-nav button.on { background: rgba(255, 193, 135, .1); color: var(--ink) }
+.ad-main { overflow: auto; padding: 28px 32px 60px }
+.ad-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px }
+.ad-head h1 { margin: 0; font: 400 38px/1.05 var(--serif) }
+.ad-head h1 small { font: 600 14px var(--sans); color: var(--faint); margin-left: 6px }
+.ad-chips { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: rgba(255, 255, 255, .05) }
+.ad-chips button { padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: var(--muted) }
+.ad-chips button.on { background: #1f1f28; color: var(--ink) }
+.ad-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px }
+.ad-card { padding: 16px 18px; border-radius: 16px; background: #13131a; border: 1px solid var(--line) }
+.ad-card small { display: block; color: var(--muted); font-size: 12px; font-weight: 600 }
+.ad-card b { display: block; margin-top: 6px; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums }
+.ad-panel { padding: 18px 20px; margin-bottom: 16px; border-radius: 16px; background: #13131a; border: 1px solid var(--line); max-width: 900px }
+.ad-panel h2 { margin: 0 0 12px; font-size: 14px }
+.ad-chart { width: 100%; height: 160px }
+.ad-chart rect { fill: #ffc187 }
+.ad-chart rect:hover { fill: #ff8fa3 }
+.ad-rows { list-style: none; margin: 0; padding: 0 }
+.ad-rows li { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px }
+.ad-rows li:last-child { border-bottom: 0 }
+.ad-muted { color: var(--muted); font-size: 13px }
+.ad-error { color: #ffb4a8; font-size: 13px }
+.ad-search { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; background: #15151c; border: 1px solid var(--line); color: var(--muted) }
+.ad-search input { padding: 9px 0; background: none; border: 0; outline: none; color: var(--ink); width: 240px; font-size: 13px }
+.ad-select { padding: 8px 10px; border-radius: 10px; background: #15151c; border: 1px solid var(--line); font-size: 13px }
+.ad-table-wrap { overflow: auto; border-radius: 14px; border: 1px solid var(--line) }
+.ad-table { width: 100%; border-collapse: collapse; font-size: 13px }
+.ad-table th { position: sticky; top: 0; text-align: left; padding: 11px 14px; background: #15151c; color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em }
+.ad-table td { padding: 11px 14px; border-top: 1px solid var(--line); vertical-align: middle }
+.ad-table td b { display: block } .ad-table td small { color: var(--faint) }
+.ad-table select { padding: 6px 8px; border-radius: 8px; background: #1b1b23; border: 1px solid var(--line); font-size: 12.5px }
+.ad-pill { padding: 5px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; background: rgba(255, 255, 255, .06) }
+.ad-pill.good { background: rgba(72, 213, 151, .15); color: #6fe0ad }
+.ad-pill.bad { background: rgba(255, 90, 90, .15); color: #ff9a9a }
+.ad-icon { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 8px; color: var(--muted) }
+.ad-icon:hover { background: rgba(255, 90, 90, .12); color: #ff9a9a }
+.ad-stickers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px }
+.ad-stickers figure { margin: 0; padding: 10px; border-radius: 14px; background: #13131a; border: 1px solid var(--line) }
+.ad-stickers figure.draft { opacity: .55 }
+.ad-stickers img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 10px; background: repeating-conic-gradient(#24242c 0 25%, #1c1c23 0 50%) 0 0 / 14px 14px }
+.ad-stickers figcaption { margin: 8px 0 6px; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ad-stickers figure div { display: flex; justify-content: space-between; align-items: center }
+.ad-gate { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 560px); justify-content: center; align-content: center; padding: 24px 16px; overflow: auto; background: #0a0a0e }
+.ad-gate > div { width: 100%; max-width: 560px; min-width: 0 }
+.ad-gate h1 { font: 400 clamp(30px, 6vw, 40px)/1.1 var(--serif); margin: 0 0 14px }
+.ad-gate p, .ad-steps { color: var(--muted); font-size: 14px; line-height: 1.7 }
+.ad-steps { padding-left: 20px }
+.ad-steps code { overflow-wrap: anywhere; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); color: var(--ink); font-size: 12.5px }
+@media (max-width: 760px) {
+  .ad { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) }
+  .ad-nav { flex-direction: row; overflow-x: auto; padding: 10px; border-right: 0; border-bottom: 1px solid var(--line) }
+  .ad-back, .ad-title { display: none }
+  .ad-nav button { flex: none }
+  .ad-main { padding: 18px 14px 40px }
+  .ad-search input { width: 150px }
+}

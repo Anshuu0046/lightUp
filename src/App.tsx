@@ -1,18 +1,21 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Clapperboard, Video } from 'lucide-react'
 import LiveApp from './live/LiveApp'
+import { AccountButton } from './cloud/Account'
 import './home.css'
 
 const Editor = lazy(() => import('./editor/Editor'))
+const Admin = lazy(() => import('./admin/Admin'))
 
-export type Route = 'home' | 'live' | 'edit'
-const routeOf = (): Route => { const r = location.hash.slice(2).split('?')[0]; return r === 'live' || r === 'edit' ? r : 'home' }
+export type Route = 'home' | 'live' | 'edit' | 'admin'
+const routeOf = (): Route => { const r = location.hash.slice(2).split('?')[0]; return r === 'live' || r === 'edit' || r === 'admin' ? r : 'home' }
 export const go = (r: Route) => { location.hash = r === 'home' ? '' : `/${r}` }
 
 export default function App() {
   const [route, setRoute] = useState<Route>(routeOf)
   useEffect(() => { const on = () => setRoute(routeOf()); addEventListener('hashchange', on); return () => removeEventListener('hashchange', on) }, [])
   if (route === 'live') return <LiveApp />
+  if (route === 'admin') return <Suspense fallback={<div className="home-loading">Opening the admin panel…</div>}><Admin /></Suspense>
   if (route === 'edit') return <Suspense fallback={<div className="home-loading">Opening the editor…</div>}><Editor /></Suspense>
   return <Home />
 }
@@ -20,6 +23,7 @@ export default function App() {
 function Home() {
   return <main className="home">
     <div className="home-glow" aria-hidden />
+    <div className="home-account"><AccountButton /></div>
     <header className="home-brand"><span className="home-ring" /> Light Up</header>
     <h1>Everything a creator needs, <em>in one place</em>.</h1>
     <p>Light yourself like a studio, then edit, caption and export your video, all on your own device.</p>

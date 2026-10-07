@@ -1,7 +1,7 @@
 {
   "name": "light-up",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -25,6 +25,7 @@
     "@fontsource/poppins": "^5.3.0",
     "@huggingface/transformers": "^4.3.1",
     "@mediapipe/tasks-vision": "^1.1.0",
+    "@supabase/supabase-js": "^2.117.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
@@ -42,7 +43,7 @@
   },
   "main": "desktop/main.cjs",
   "productName": "Light Up",
-  "description": "Realistic ring light, window light and hand-held bulb for your webcam, with a virtual camera for Zoom, Teams and OBS.",
+  "description": "All-in-one creator studio: realistic live lighting with a virtual camera, plus a video editor with looks, text, captions in English, Hindi and Telugu, audio tools, cut-outs and stickers.",
   "author": "Light Up",
   "license": "UNLICENSED",
   "build": {

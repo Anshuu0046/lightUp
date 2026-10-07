@@ -3,6 +3,8 @@
 import { env, pipeline } from '@huggingface/transformers'
 
 env.allowLocalModels = false
+// the runtime files are bundled with the app, so there's nothing to cache (and app:// can't be cached anyway)
+;(env as { useWasmCache?: boolean }).useWasmCache = false
 // the speech runtime ships with the app instead of loading from a CDN
 const ort = env.backends.onnx as { wasm?: { wasmPaths?: unknown } }
 if (ort.wasm) ort.wasm.wasmPaths = { mjs: '/ort/ort-wasm-simd-threaded.asyncify.mjs', wasm: '/ort/ort-wasm-simd-threaded.asyncify.wasm' }

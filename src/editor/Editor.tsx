@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Captions, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
+import { ArrowLeft, Captions, Cloud, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
 import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, textClip, trackKindFor, uid } from './model'
 import { BASE_TEXT, ensureFont } from './text'
 import { layersAt } from './render'
@@ -7,6 +7,9 @@ import { CaptionsDialog } from './CaptionsDialog'
 import { SoundsPanel } from './SoundsPanel'
 import { CutoutEditor } from './CutoutEditor'
 import { StickersPanel } from './StickersPanel'
+import { AccountButton } from '../cloud/Account'
+import { CloudDialog } from '../cloud/CloudDialog'
+import { cloudEnabled, track } from '../cloud/supabase'
 import { DEFAULT_DUCKING } from './audio'
 import { useHistory } from './history'
 import { clearSaved, importFile, loadProject, saveProject } from './media'
@@ -32,6 +35,9 @@ export default function Editor() {
   const [exporting, setExporting] = useState(false)
   const [captioning, setCaptioning] = useState(false)
   const [refining, setRefining] = useState(false)
+  const [cloudOpen, setCloudOpen] = useState(false)
+  const [cloudId, setCloudId] = useState<string | null>(() => { try { return localStorage.getItem('lightup-cloud-id') } catch { return null } })
+  useEffect(() => { try { cloudId ? localStorage.setItem('lightup-cloud-id', cloudId) : localStorage.removeItem('lightup-cloud-id') } catch { /* private mode */ } }, [cloudId])
   const [loaded, setLoaded] = useState(false)
   const [library, setLibrary] = useState<'media' | 'sounds' | 'stickers'>('media')
   const [panel, setPanel] = useState<'media' | 'edit' | null>(null) // phones show at most one side panel, so the preview gets the room
@@ -171,7 +177,7 @@ export default function Editor() {
 
   const newOne = async () => {
     if (project.clips.length && !confirm('Start a new project? The current one will be cleared from this device.')) return
-    player.current?.pause(); await clearSaved(); h.reset(newProject()); setSelected(null); seek(0)
+    player.current?.pause(); await clearSaved(); h.reset(newProject()); setSelected(null); setCloudId(null); seek(0)
   }
 
   return <div className="editor" onDragOver={e => e.dataTransfer.types.includes('Files') && e.preventDefault()} onDrop={e => { if (e.dataTransfer.files.length) { e.preventDefault(); addFiles(e.dataTransfer.files) } }}>
@@ -185,6 +191,8 @@ export default function Editor() {
       <button className="ed-btn ghost" onClick={h.undo} disabled={!h.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)"><Undo2 size={16} /></button>
       <button className="ed-btn ghost" onClick={h.redo} disabled={!h.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)"><Redo2 size={16} /></button>
       <button className="ed-btn ghost wide-only" onClick={newOne}>New</button>
+      {cloudEnabled && <button className="ed-btn ghost" onClick={() => setCloudOpen(true)} aria-label="Your projects" title="Save to or open from your account"><Cloud size={16} /></button>}
+      <AccountButton />
       <button className="ed-btn primary" onClick={() => setExporting(true)} disabled={!duration}><Download size={15} /> Export</button>
     </header>
 
@@ -255,6 +263,7 @@ export default function Editor() {
       try { const cut = await importFile(file); h.commit({ type: 'addAsset', asset: cut }); h.commit({ type: 'updateClip', id: clip.id, patch: { assetId: cut.id, cutout: undefined } }); setToast('Cut-out applied. The original photo is still in your media.') }
       catch { setToast('Couldn’t save the cut-out.') }
     }} />}
+    {cloudOpen && <CloudDialog project={project} duration={duration} cloudId={cloudId} onClose={() => setCloudOpen(false)} onSaved={id => { setCloudId(id); setToast('Saved to your account.') }} onOpen={(p, id) => { player.current?.pause(); h.reset(p); setCloudId(id); setSelected(null); seek(0) }} />}
     {exporting && <ExportDialog onClose={() => setExporting(false)} project={project} />}
     {toast && <div className="ed-toast" role="status">{toast}</div>}
   </div>
@@ -276,6 +285,7 @@ function ExportDialog({ project, onClose }: { project: ReturnType<typeof newProj
       const { exportVideo } = await import('./exporter')
       const blob = await exportVideo(project, { height, fps: 30 }, setProgress, abort.current.signal)
       const ext = blob.type.includes('webm') ? 'webm' : 'mp4'
+      track('export', { aspect: project.aspect, height, seconds: Math.round(projectDuration(project)), clips: project.clips.length })
       setResult({ url: URL.createObjectURL(blob), name: `${project.name.replace(/[^\w\- ]+/g, '').trim() || 'video'}.${ext}` })
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setError(e instanceof Error ? e.message : 'Export failed.')

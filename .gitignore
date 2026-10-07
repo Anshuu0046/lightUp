@@ -15,3 +15,7 @@ vite.config.d.ts
 
 # speech sample for testing captions
 jfk-test.wav
+
+# local secrets
+.env
+.env.local

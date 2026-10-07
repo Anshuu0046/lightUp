@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, Upload, X } from 'lucide-react'
-import { deleteSticker, download, giphyKey, type Kind, myStickers, type MySticker, saveSticker, searchGiphy, setGiphyKey, type StickerResult } from './stickers'
+import { deleteSticker, download, giphyKey, type Kind, libraryStickers, loadSharedKey, myStickers, type MySticker, saveSticker, searchGiphy, setGiphyKey, type StickerResult } from './stickers'
+import { cloudEnabled } from '../cloud/supabase'
 
 /** Stickers and GIFs from GIPHY, plus "My stickers": a library the user uploads to, shared across projects */
 export function StickersPanel({ onAdd, onError }: { onAdd: (f: File) => Promise<void>; onError: (m: string) => void }) {
-  const [source, setSource] = useState<'giphy' | 'mine'>('giphy')
+  const [source, setSource] = useState<'giphy' | 'mine' | 'library'>('giphy')
   return <>
     <div className="ed-chips ed-sources">
       <button className={source === 'giphy' ? 'on' : ''} onClick={() => setSource('giphy')}>GIPHY</button>
-      <button className={source === 'mine' ? 'on' : ''} onClick={() => setSource('mine')}>My stickers</button>
+      {cloudEnabled && <button className={source === 'library' ? 'on' : ''} onClick={() => setSource('library')}>Library</button>}
+      <button className={source === 'mine' ? 'on' : ''} onClick={() => setSource('mine')}>Mine</button>
     </div>
-    {source === 'giphy' ? <Giphy onAdd={onAdd} onError={onError} /> : <Mine onAdd={onAdd} onError={onError} />}
+    {source === 'giphy' ? <Giphy onAdd={onAdd} onError={onError} /> : source === 'library' ? <Library onAdd={onAdd} onError={onError} /> : <Mine onAdd={onAdd} onError={onError} />}
   </>
 }
 
 function Giphy({ onAdd, onError }: { onAdd: (f: File) => Promise<void>; onError: (m: string) => void }) {
   const [key, setKey] = useState(giphyKey)
+  useEffect(() => { if (!key) loadSharedKey().then(k => k && setKey(k)).catch(() => {}) }, [])
   const [draft, setDraft] = useState('')
   const [kind, setKind] = useState<Kind>('stickers')
   const [q, setQ] = useState('')
@@ -66,6 +69,19 @@ function Giphy({ onAdd, onError }: { onAdd: (f: File) => Promise<void>; onError:
     </div>
     <p className="ed-attribution">Powered by GIPHY</p>
   </>
+}
+
+function Library({ onAdd, onError }: { onAdd: (f: File) => Promise<void>; onError: (m: string) => void }) {
+  const [list, setList] = useState<{ id: string; name: string; url: string }[] | null>(null)
+  const [adding, setAdding] = useState('')
+  useEffect(() => { libraryStickers().then(setList).catch(() => onError('Couldn’t load the sticker library.')) }, [])
+  const add = async (s: { id: string; name: string; url: string }) => {
+    setAdding(s.id)
+    try { const b = await (await fetch(s.url)).blob(); await onAdd(new File([b], s.name, { type: b.type })) } catch { onError('Couldn’t add that sticker.') } finally { setAdding('') }
+  }
+  if (!list) return <p className="ed-note">Loading…</p>
+  if (!list.length) return <p className="ed-note">No shared stickers yet. Admins can publish some from the admin panel.</p>
+  return <div className="ed-stickers">{list.map(s => <button key={s.id} title={`Add ${s.name}`} disabled={!!adding} onClick={() => add(s)}><img src={s.url} alt={s.name} loading="lazy" />{adding === s.id && <span className="ed-spin" />}</button>)}</div>
 }
 
 function Mine({ onAdd, onError }: { onAdd: (f: File) => Promise<void>; onError: (m: string) => void }) {

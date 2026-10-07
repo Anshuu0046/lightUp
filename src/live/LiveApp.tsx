@@ -4,6 +4,7 @@ import { createFaceTracker, createHandTracker, type Face } from '../faceTracker'
 import { startRecording, takePhoto } from '../recorder'
 import { bridge, startVirtualCamera } from '../virtualCamera'
 import { AutoLight, NEUTRAL } from './autoLight'
+import { track } from '../cloud/supabase'
 import { DEFAULT_LOOK, drawCatchlights, glide, rigFor, WARMTH_MAX, WARMTH_MIN, type Look, type Rig, type Spot, type Style } from './rig'
 import './live.css'
 
@@ -44,7 +45,7 @@ export default function LiveApp() {
   const [busy, setBusy] = useState(false)
   const start = async (deviceId?: string) => {
     setBusy(true); setError('')
-    try { setStream(await openCamera(deviceId)) }
+    try { setStream(await openCamera(deviceId)); if (!deviceId) track('live_start') }
     catch { setError('Camera access was blocked or no camera was found. Allow camera access and try again.') }
     finally { setBusy(false) }
   }
@@ -174,7 +175,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
   const toggleLive = () => run(async () => {
     if (live) { live(); setLive(null); setToast('Stopped sending to Light Up Camera'); return }
     const stop = await startVirtualCamera(stage.current!)
-    setLive(() => stop); setToast('Live: choose “Light Up Camera” in Zoom, Teams or OBS')
+    setLive(() => stop); setToast('Live: choose “Light Up Camera” in Zoom, Teams or OBS'); track('vcam_start')
   })
   const toggleRec = () => run(async () => {
     if (rec) { const r = rec; setRec(null); await r.stop(); setToast('Video saved to Downloads'); return }
