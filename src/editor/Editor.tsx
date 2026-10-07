@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Copy, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Undo2, Upload, X } from 'lucide-react'
-import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, collides, freeSpot, newProject, projectDuration, trackKindFor, uid } from './model'
+import { ArrowLeft, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Undo2, Upload, X } from 'lucide-react'
+import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, trackKindFor, uid } from './model'
 import { useHistory } from './history'
 import { clearSaved, importFile, loadProject, saveProject } from './media'
 import { Player } from './player'
 import { Timeline } from './Timeline'
+import { Inspector } from './Inspector'
 import './editor.css'
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}.${String(Math.floor((t % 1) * 10))}`
@@ -101,13 +102,6 @@ export default function Editor() {
     addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey)
   })
 
-  const patch = (p: Partial<NonNullable<typeof clip>>) => {
-    if (!clip) return
-    const next = { ...clip, ...p }
-    if (collides(project, next)) { setToast('That would overlap the next clip. Move it first.'); return }
-    h.commit({ type: 'updateClip', id: clip.id, patch: p })
-  }
-
   const newOne = async () => {
     if (project.clips.length && !confirm('Start a new project? The current one will be cleared from this device.')) return
     player.current?.pause(); await clearSaved(); h.reset(newProject()); setSelected(null); seek(0)
@@ -156,24 +150,8 @@ export default function Editor() {
 
       <aside className={`ed-side inspector ${panel === 'edit' ? 'show' : ''}`}>
         {clip && asset ? <>
-          <div className="ed-side-head"><b title={asset.name}>{asset.name}</b></div>
-          {asset.kind !== 'audio' && <>
-            <Range label="Size" value={Math.round(clip.transform.scale * 100)} min={10} max={300} unit="%" onChange={v => patch({ transform: { ...clip.transform, scale: v / 100 } })} />
-            <Range label="Left / right" value={Math.round(clip.transform.x * 100)} min={-50} max={150} unit="%" onChange={v => patch({ transform: { ...clip.transform, x: v / 100 } })} />
-            <Range label="Up / down" value={Math.round(clip.transform.y * 100)} min={-50} max={150} unit="%" onChange={v => patch({ transform: { ...clip.transform, y: v / 100 } })} />
-            <Range label="Rotate" value={clip.transform.rotation} min={-180} max={180} unit="°" onChange={v => patch({ transform: { ...clip.transform, rotation: v } })} />
-            <Range label="Opacity" value={Math.round(clip.opacity * 100)} min={0} max={100} unit="%" onChange={v => patch({ opacity: v / 100 })} />
-          </>}
-          {asset.kind !== 'image' && <>
-            <Range label="Volume" value={Math.round(clip.volume * 100)} min={0} max={100} unit="%" onChange={v => patch({ volume: v / 100 })} />
-            <div className="ed-field"><span>Speed</span><div className="ed-chips">{[0.25, 0.5, 1, 1.5, 2, 4].map(s => <button key={s} className={clip.speed === s ? 'on' : ''} onClick={() => patch({ speed: s })}>{s}×</button>)}</div></div>
-          </>}
-          <div className="ed-row">
-            <button className="ed-btn" onClick={split}><Scissors size={14} /> Split</button>
-            <button className="ed-btn" onClick={duplicate}><Copy size={14} /> Duplicate</button>
-            <button className="ed-btn danger" onClick={remove}><Trash2 size={14} /> Delete</button>
-          </div>
-        </> : <div className="ed-nothing"><b>Nothing selected</b><small>Click a clip on the timeline to adjust its size, position, volume and speed.</small></div>}
+          <Inspector project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} />
+        </> : <div className="ed-nothing"><b>Nothing selected</b><small>Click a clip on the timeline to adjust it, give it a look, or add effects.</small></div>}
       </aside>
     </div>
 
@@ -200,9 +178,6 @@ export default function Editor() {
   </div>
 }
 
-function Range({ label, value, min, max, unit, onChange }: { label: string; value: number; min: number; max: number; unit: string; onChange: (v: number) => void }) {
-  return <label className="ed-field"><span>{label} <b>{value}{unit}</b></span><input type="range" min={min} max={max} value={value} onChange={e => onChange(+e.target.value)} /></label>
-}
 
 function ExportDialog({ project, onClose }: { project: ReturnType<typeof newProject>; onClose: () => void }) {
   const [height, setHeight] = useState<720 | 1080>(1080)

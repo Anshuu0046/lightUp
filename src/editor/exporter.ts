@@ -64,11 +64,11 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
       g.fillStyle = '#000'; g.fillRect(0, 0, W, H)
       for (const clip of layersAt(p, t)) {
         const asset = p.assets.find(a => a.id === clip.assetId)!
-        if (asset.kind === 'image') { const b = images.get(asset.id)!; drawClip(g, b, b.width, b.height, clip, W, H) }
+        if (asset.kind === 'image') { const b = images.get(asset.id)!; drawClip(g, b, b.width, b.height, clip, W, H, t) }
         else if (asset.kind === 'video') {
           const next = await streams.get(clip.id)?.next()
           const frame = next && !next.done ? next.value : null
-          if (frame) drawClip(g, frame.canvas, frame.canvas.width, frame.canvas.height, clip, W, H)
+          if (frame) drawClip(g, frame.canvas, frame.canvas.width, frame.canvas.height, clip, W, H, t)
         }
       }
       await video.add(t, 1 / opts.fps)

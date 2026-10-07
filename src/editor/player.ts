@@ -62,10 +62,10 @@ export class Player {
       if (!asset) continue
       if (asset.kind === 'image') {
         const img = this.image(asset.id)
-        if (img.complete) drawClip(g, img, img.naturalWidth, img.naturalHeight, clip, W, H)
+        if (img.complete) drawClip(g, img, img.naturalWidth, img.naturalHeight, clip, W, H, this.time)
       } else if (asset.kind === 'video') {
         const v = this.el(clip, 'video') as HTMLVideoElement
-        if (v.readyState >= 2) drawClip(g, v, v.videoWidth, v.videoHeight, clip, W, H)
+        if (v.readyState >= 2) drawClip(g, v, v.videoWidth, v.videoHeight, clip, W, H, this.time)
       }
     }
   }

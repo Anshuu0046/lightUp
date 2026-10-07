@@ -62,6 +62,24 @@
 .ed-nothing { display: flex; flex-direction: column; gap: 6px; padding: 20px 4px; color: var(--muted); font-size: 12.5px }
 .ed-nothing b { color: var(--ink) }
 
+.ed-segment { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; margin-bottom: 14px; border-radius: 10px; background: rgba(255, 255, 255, .05) }
+.ed-segment button { padding: 7px 4px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--muted) }
+.ed-segment button.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, .4) }
+.ed-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px }
+.ed-presets button { display: flex; flex-direction: column; gap: 4px; padding: 0; text-align: left }
+.ed-presets span { aspect-ratio: 1; border-radius: 9px; background: linear-gradient(135deg, #6d5a4a, #2c3a4a) center / cover; border: 2px solid transparent }
+.ed-presets button.on span { border-color: var(--warm) }
+.ed-presets small { font-size: 10.5px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.ed-presets button.on small { color: var(--ink) }
+.ed-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; cursor: pointer }
+.ed-toggle > span { display: flex; flex-direction: column; font-size: 12px; font-weight: 600 }
+.ed-toggle small { color: var(--faint); font-weight: 500; font-size: 11px }
+.ed-toggle input { position: absolute; opacity: 0 }
+.ed-toggle i { flex: none; width: 34px; height: 20px; border-radius: 99px; background: rgba(255, 255, 255, .14); position: relative; transition: background .2s }
+.ed-toggle i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s var(--ease) }
+.ed-toggle input:checked + i { background: var(--warm) }
+.ed-toggle input:checked + i::after { transform: translateX(14px) }
+.ed-toggle input:focus-visible + i { box-shadow: 0 0 0 3px rgba(255, 193, 135, .45) }
 .ed-tabs { display: none }
 
 /* ---------- timeline ---------- */

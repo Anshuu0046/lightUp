@@ -1,4 +1,5 @@
 /** The editor's document: media you imported, tracks, and clips placed on them. All times are in seconds. */
+import type { Fx, Grade } from './looks'
 
 export type AssetKind = 'video' | 'image' | 'audio'
 export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string }
@@ -22,6 +23,10 @@ export type Clip = {
   volume: number
   opacity: number
   transform: Transform
+  /** colour grade and effects; missing on clips saved before they existed */
+  grade?: Grade
+  fx?: Fx
+  preset?: string
 }
 
 export type Aspect = '9:16' | '16:9' | '1:1' | '4:5'
