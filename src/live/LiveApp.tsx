@@ -7,6 +7,7 @@ import { AutoLight, NEUTRAL } from './autoLight'
 import { track } from '../cloud/supabase'
 import { DEFAULT_LOOK, drawCatchlights, glide, rigFor, WARMTH_MAX, WARMTH_MIN, type Look, type Rig, type Spot, type Style } from './rig'
 import { HUE_NAMES, Swatches } from './Swatches'
+import { Teleprompter, useScript } from '../Teleprompter'
 import './live.css'
 
 const STYLES: { id: Style; name: string; hint: string }[] = [
@@ -31,7 +32,9 @@ async function openCamera(deviceId?: string): Promise<MediaStream> {
     setInterval(() => { g.filter = `brightness(${(window as unknown as { __bright?: number }).__bright ?? 1})`; const s = Math.max(1280 / v.videoWidth, 720 / v.videoHeight); g.drawImage(v, (1280 - v.videoWidth * s) / 2, (720 - v.videoHeight * s) / 2, v.videoWidth * s, v.videoHeight * s) }, 33)
     return c.captureStream(30)
   }
-  const video = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+  const phone = matchMedia('(pointer: coarse)').matches
+  // phones: the front camera, in portrait, at a size the phone can light in real time
+  const video = phone ? { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30 } } : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
   let stream = await navigator.mediaDevices.getUserMedia({ video: deviceId ? { ...video, deviceId: { exact: deviceId } } : video, audio: false })
   if (!deviceId && /light up/i.test(stream.getVideoTracks()[0]?.label ?? '')) {
     const real = (await navigator.mediaDevices.enumerateDevices()).find(d => d.kind === 'videoinput' && !/light up/i.test(d.label))
@@ -87,6 +90,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([])
   const [handHint, setHandHint] = useState(false)
   const [counter, setCounter] = useState(0)
+  const { script, setScript, tele, setTele } = useScript()
   const count = useRef(0)
   const onGesture = useRef<(g: Gesture | null, hand: Hand, now: number) => void>(() => {})
   // where the bulb is when no hand is holding it; a click or drag moves it
@@ -117,8 +121,9 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
   useEffect(() => {
     let t = 0
     const wake = () => { setIdle(false); clearTimeout(t); t = window.setTimeout(() => setIdle(true), 2600) }
-    wake(); addEventListener('pointermove', wake); addEventListener('keydown', wake)
-    return () => { clearTimeout(t); removeEventListener('pointermove', wake); removeEventListener('keydown', wake) }
+    // a tap on a touch screen never moves the pointer, so presses wake it too (otherwise the settings button could vanish for good on a phone)
+    wake(); for (const ev of ['pointermove', 'pointerdown', 'keydown']) addEventListener(ev, wake)
+    return () => { clearTimeout(t); for (const ev of ['pointermove', 'pointerdown', 'keydown']) removeEventListener(ev, wake) }
   }, [])
 
   // camera -> face tracking -> relight -> catchlights, once per camera frame
@@ -205,6 +210,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
   const toggleRec = () => run(async () => {
     if (rec) { const r = rec; setRec(null); setToast(`Video saved to ${await r.stop()}`); return }
     setRec(await startRecording(stage.current!))
+    setOpen(false) // out of the way, so the whole picture and the script are in view
   })
   // click or drag on the picture to put the bulb there (the preview is mirrored and cropped to fill the screen)
   const placeBulb = (e: React.PointerEvent) => {
@@ -260,7 +266,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) nextStyle(dx < 0 ? 1 : -1)
   }
 
-  return <div className={`live ${idle && !open ? 'idle' : ''}`}>
+  return <div className={`live ${idle && !open ? 'idle' : ''} ${tele.on ? 'has-tele' : ''}`}>
     <div className={`live-stage ${look.style === 'bulb' ? 'placeable' : ''}`} ref={stage} onPointerDown={stageDown} onPointerMove={stageMove} onPointerUp={stageUp} onPointerCancel={() => { swipe.current = null }}>
       <video ref={video} className={status === 'plain' ? 'plain' : ''} muted playsInline />
       <canvas ref={canvas} className={`gpu-canvas depth-canvas ${status === 'ready' ? 'active' : ''}`} />
@@ -268,9 +274,10 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     </div>
 
     {status === 'loading' && <div className="pill center"><span className="spinner" /> Preparing realistic lighting…</div>}
-    {status === 'plain' && <div className="pill top">This computer can’t run the lighting engine, so you’re seeing your camera as is.</div>}
+    {status === 'plain' && <div className="pill top">Lighting isn’t available on this device, so you’re seeing your camera as is.</div>}
     {toast && <div className="pill top" role="status">{toast}</div>}
     {counter > 0 && <div className="countdown" aria-live="assertive">{counter}</div>}
+    {tele.on && <Teleprompter className="live-tele" script={script} running={!!rec} speed={tele.speed} size={tele.size} />}
     {handHint && !toast && status === 'ready' && <div className="pill bottom">Hold up your hand to carry the bulb, or click anywhere to place it</div>}
     {(rec || live) && <div className="badges">{rec && <span className="badge rec"><i /> REC {time}</span>}{live && <span className="badge on"><i /> Light Up Camera</span>}</div>}
 
@@ -315,6 +322,18 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
         <label className="switch"><span>Eye catchlights<small>The light’s reflection in your eyes</small></span>
           <input type="checkbox" checked={look.catchlight} onChange={e => set({ catchlight: e.target.checked })} /><i /></label>
       </fieldset>
+
+      <div className="tele-box">
+        <label className="switch first"><span>Teleprompter<small>Your script scrolls on its own when you press Record. It isn’t in the video.</small></span>
+          <input type="checkbox" checked={tele.on} onChange={e => setTele({ on: e.target.checked })} /><i /></label>
+        {tele.on && <>
+          <textarea className="tele-script" value={script} placeholder="Type or paste your script here…" rows={4} onChange={e => setScript(e.target.value)} />
+          <label className="slider"><span>Scroll speed <b>{tele.speed}</b></span>
+            <input type="range" min="1" max="10" value={tele.speed} onChange={e => setTele({ speed: +e.target.value })} style={{ '--p': `${(tele.speed - 1) * 11.1}%` } as React.CSSProperties} /></label>
+          <label className="slider"><span>Text size <b>{tele.size}</b></span>
+            <input type="range" min="18" max="56" value={tele.size} onChange={e => setTele({ size: +e.target.value })} style={{ '--p': `${((tele.size - 18) / 38) * 100}%` } as React.CSSProperties} /></label>
+        </>}
+      </div>
 
       <div className="actions">
         {bridge() && <button className={`action wide ${live ? 'on' : ''}`} onClick={toggleLive}><Video size={15} /> {live ? 'Live as Light Up Camera' : 'Use in Zoom, Teams & OBS'}</button>}

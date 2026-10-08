@@ -130,7 +130,6 @@ export default function Landing() {
       <div className="lnav-links">
         <button onClick={() => jump('lights')}>Lights</button>
         <button onClick={() => jump('editor')}>Editor</button>
-        <button onClick={() => jump('captions')}>Captions</button>
         <button onClick={() => jump('get')}>Download</button>
       </div>
       <div className="lnav-end"><AccountButton /><a className="lbtn small" href="#/live">Open studio</a></div>
@@ -199,16 +198,6 @@ export default function Landing() {
       </div>
     </section>
 
-    {/* ---------- 5. captions ---------- */}
-    <section className="captions-scene" id="captions">
-      <div className="rv">
-        <p className="eyebrow">04 · Captions</p>
-        <h2>Captions in the language <em>you speak.</em></h2>
-        <p className="lead">Speak Hindi, Telugu or English. Light Up hears which, writes it word for word, and can translate it into the other two. It all happens on your phone or computer, and works offline after the first download.</p>
-      </div>
-      <CaptionDemo />
-    </section>
-
     <div className="ribbon" aria-hidden>
       <div>{[0, 1].map(k => <span key={k}>{RIBBON.map(w => <b key={w + k}>{w}<i /></b>)}</span>)}</div>
     </div>
@@ -216,7 +205,7 @@ export default function Landing() {
     {/* ---------- 6. everywhere ---------- */}
     <section className="get" id="get">
       <div className="rv">
-        <p className="eyebrow">05 · Everywhere</p>
+        <p className="eyebrow">04 · Everywhere</p>
         <h2>Your light, <em>in every app.</em></h2>
       </div>
       <div className="platforms">
@@ -227,14 +216,14 @@ export default function Landing() {
           <Monitor size={22} /><b>Windows</b><p>Adds “Light Up Camera”, so your light shows up in Zoom, Teams, OBS and TikTok Live Studio.</p><span>Download for Windows <Download size={14} /></span>
         </a>
         <a className="platform rv" href={RELEASES} target="_blank" rel="noreferrer" style={{ '--d': 2 } as React.CSSProperties}>
-          <Smartphone size={22} /><b>Android</b><p>The whole studio in your pocket: lighting, editor and captions, offline.</p><span>Download the app <Download size={14} /></span>
+          <Smartphone size={22} /><b>Android</b><p>The whole studio in your pocket: lighting and editor, offline.</p><span>Download the app <Download size={14} /></span>
         </a>
       </div>
     </section>
 
     <section className="privacy">
       <p className="rv big">Your face never leaves <em>your device.</em></p>
-      <p className="rv lead" style={{ '--d': 1 } as React.CSSProperties}>Lighting, captions and exports run on your own hardware. No uploads. No account needed.</p>
+      <p className="rv lead" style={{ '--d': 1 } as React.CSSProperties}>Lighting and exports run on your own hardware. No uploads. No account needed.</p>
     </section>
 
     <section className="finale">
@@ -258,7 +247,7 @@ const LIGHTS: { id: 'ring' | 'window' | 'bulb'; name: string; text: string }[] =
 ]
 
 const RIBBON = ['Reels', 'Shorts', 'TikTok', 'Live streams', 'Zoom', 'Teams', 'OBS', 'Podcasts', 'Vlogs', 'English', 'हिन्दी', 'తెలుగు']
-const CHIPS = ['Captions in 3 languages', 'Music ducks under your voice', 'Remove the background', 'Relight any clip', '12 looks', 'GIFs & stickers', '1080p MP4']
+const CHIPS = ['Teleprompter', 'Music ducks under your voice', 'Remove the background', 'Relight any clip', '12 looks', 'GIFs & stickers', '1080p MP4']
 const CHIP_DEPTH = [1.4, 0.7, 1.1, 1.6, 0.6, 1.2, 0.9]
 const CHIP_POS: React.CSSProperties[] = [{ left: '-4%', top: '8%' }, { right: '-3%', top: '14%' }, { left: '-6%', top: '46%' }, { right: '-5%', top: '50%' }, { left: '6%', bottom: '-4%' }, { right: '10%', bottom: '-6%' }, { left: '30%', bottom: '-8%' }]
 
@@ -309,46 +298,3 @@ function EditorMock() {
   </div>
 }
 
-const CAPTIONS = [
-  { lang: 'English', words: ['Hey', 'everyone,', 'welcome', 'back', 'to', 'the', 'channel'] },
-  { lang: 'हिन्दी', words: ['सबको', 'नमस्ते,', 'चैनल', 'पर', 'फिर', 'से', 'स्वागत', 'है'] },
-  { lang: 'తెలుగు', words: ['అందరికీ', 'నమస్కారం,', 'మళ్ళీ', 'మన', 'ఛానెల్‌కి', 'స్వాగతం'] },
-]
-
-function CaptionDemo() {
-  const [i, setI] = useState(0)
-  useEffect(() => { const t = setInterval(() => setI(n => (n + 1) % CAPTIONS.length), 3600); return () => clearInterval(t) }, [])
-  const c = CAPTIONS[i]
-  return <div className="capdemo rv" style={{ '--d': 1 } as React.CSSProperties}>
-    <div className="cap-langs">{CAPTIONS.map((x, k) => <span key={x.lang} className={k === i ? 'on' : ''}>{x.lang}</span>)}</div>
-    <p className="cap-line" key={i} lang={['en', 'hi', 'te'][i]}>{c.words.map((w, k) => <span key={k} style={{ '--w': k } as React.CSSProperties}>{w}</span>)}</p>
-    <Wave />
-  </div>
-}
-
-/** The voice meter: one canvas drawn at 30 fps, and only while it's on screen (48 separately animated bars cost far more) */
-function Wave() {
-  const ref = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    const c = ref.current!, g = c.getContext('2d')!
-    const dpr = Math.min(devicePixelRatio || 1, 2), W = 288, H = 40
-    c.width = W * dpr; c.height = H * dpr; g.scale(dpr, dpr)
-    const still = matchMedia('(prefers-reduced-motion: reduce)').matches
-    const draw = (t: number) => {
-      g.clearRect(0, 0, W, H)
-      g.fillStyle = 'rgba(255, 217, 176, .55)'
-      for (let k = 0; k < 48; k++) {
-        const v = 0.5 + 0.5 * Math.sin(t / 380 + k * 0.55) * Math.sin(t / 910 + k * 0.23), h = 4 + v * (H - 4)
-        g.beginPath(); g.roundRect(k * 6, (H - h) / 2, 3, h, 1.5); g.fill()
-      }
-    }
-    draw(1200)
-    if (still) return
-    let raf = 0, last = 0, visible = false
-    const loop = (now: number) => { raf = requestAnimationFrame(loop); if (now - last > 33) { last = now; draw(now) } }
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting && !visible) { visible = true; raf = requestAnimationFrame(loop) } else if (!e.isIntersecting && visible) { visible = false; cancelAnimationFrame(raf) } })
-    io.observe(c)
-    return () => { io.disconnect(); cancelAnimationFrame(raf) }
-  }, [])
-  return <canvas ref={ref} className="cap-wave" aria-hidden />
-}

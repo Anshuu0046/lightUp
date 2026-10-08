@@ -175,13 +175,13 @@
 
 /* ---------- phones and narrow windows: preview on top, one side panel at a time, timeline below ---------- */
 /* very narrow phones: the frame-shape menu matters more than the project name */
-@media (max-width: 520px) { .ed-name { display: none } .ed-select { max-width: none; flex: 1 } }
+@media (max-width: 520px) { .ed-name { display: none } .ed-select { max-width: none; flex: 1; min-width: 118px } }
 @media (max-width: 900px) {
   .editor { --row-v: 50px; --row-a: 34px }
   .wide-only { display: none }
   .ed-name { width: auto; flex: 1 }
   .ed-zoom { font-size: 0; gap: 0 }
-  .ed-select { max-width: 92px }
+  .ed-select { max-width: 130px }
   /* the preview keeps the top of the screen; the bottom area is a fixed height and shows one thing at a time */
   .editor { --bottom: 42vh }
   .ed-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto auto }
@@ -218,3 +218,44 @@
   .tl-ruler { height: 32px } .tl-ruler-spacer { height: 32px }
 }
 .ed-modal > .ed-note { display: block; margin: -6px 0 12px }
+
+.tl-key { position: absolute; bottom: 3px; width: 9px; height: 9px; margin-left: -5px; transform: rotate(45deg); background: var(--warm); border: 1px solid #141218; pointer-events: none; z-index: 1 }
+.ed-keys { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px }
+.ed-keys li { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; border-radius: 9px; background: rgba(255, 255, 255, .04); font-size: 12px; font-weight: 600 }
+.ed-keys li > button:first-child { flex: 1; text-align: left; font-variant-numeric: tabular-nums }
+.ed-keys .on { background: rgba(255, 193, 135, .16) }
+.ed-keys .x { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--muted) }
+
+.ed-presets .ed-lut { width: 100%; aspect-ratio: 1; border-radius: 9px; border: 2px solid transparent; display: block }
+.ed-presets button.on .ed-lut { border-color: var(--warm) }
+.ed-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .25) }
+.ed-dot.on { border-color: #fff; box-shadow: 0 0 0 2px var(--warm) }
+
+.ed-projects { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow: auto }
+.ed-projects li { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line) }
+.ed-projects li.current { border-color: rgba(255, 193, 135, .55) }
+.ed-pthumb { flex: none; width: 64px; aspect-ratio: 16 / 10; border-radius: 9px; background: #1d1d26 center / cover; display: grid; place-items: center; color: var(--muted) }
+.ed-pinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+.ed-pinfo b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ed-pinfo small { color: var(--faint); font-size: 11px }
+.ed-pact { flex: none; display: flex; align-items: center; gap: 2px }
+@media (max-width: 520px) { .ed-projects li { flex-wrap: wrap } .ed-pact { width: 100%; justify-content: flex-end } }
+
+.ed-emoji { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px }
+.ed-emoji button { aspect-ratio: 1; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); font-size: 26px; line-height: 1 }
+.ed-emoji button:hover { border-color: var(--warm) }
+
+/* ---------- voiceover ---------- */
+.vo-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; background: #15151c; border-top: 1px solid var(--line-strong); box-shadow: 0 -20px 60px rgba(0, 0, 0, .55) }
+@media (min-width: 901px) { .vo-bar { left: 50%; right: auto; width: min(560px, 100%); transform: translateX(-50%); border-radius: 18px 18px 0 0; border: 1px solid var(--line-strong); border-bottom: 0 } }
+.vo-head { display: flex; align-items: center; justify-content: space-between }
+.vo-head b { display: flex; align-items: center; gap: 6px; font-size: 13px }
+.vo-tele { position: relative; height: 150px; border-radius: 12px; overflow: hidden; background: #000 }
+.vo-tele .tp { position: absolute; inset: 0; height: 100%; -webkit-mask-image: none; mask-image: none }
+.vo-tele .tp-text { padding: 60px 6% 140px }
+.vo-tele .tp-line { top: 60px }
+.vo-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap }
+.vo-row .ed-mini input[type=range] { width: 90px }
+.vo-bar .ed-textarea { margin-bottom: 0 }
+
+@media (max-width: 420px) { .export-label { display: none } .ed-top { gap: 4px; padding: 0 8px } }

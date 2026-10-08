@@ -3,6 +3,8 @@ import type { Fx, Grade } from './looks'
 import type { TextSpec } from './text'
 import type { ClipAudio, Ducking } from './audio'
 import type { Lighting } from './relight'
+import type { EyeFx } from './eyes'
+import type { ClipLut, CustomLut } from './lut'
 
 export type AssetKind = 'video' | 'image' | 'audio'
 export type Asset = { id: string; kind: AssetKind; name: string; duration: number; width: number; height: number; hasAudio: boolean; thumb: string; /** waveform picture for sound */ wave?: string; /** GIFs and animated stickers loop */ animated?: boolean }
@@ -39,12 +41,28 @@ export type Clip = {
   shape?: 'none' | 'rounded' | 'circle'
   /** studio light added to the filmed picture */
   light?: Lighting
+  /** position, size, rotation and opacity over the clip's own time; when set, these replace `transform` and `opacity` */
+  keys?: Keyframe[]
+  /** plays backwards (sound too, in the export) */
+  reverse?: boolean
+  /** mirror left-right / flip upside down */
+  flipX?: boolean
+  flipY?: boolean
+  /** the clip's own sound is removed (the file keeps it, so it can be brought back) */
+  muted?: boolean
+  /** colour lookup table on top of the grade */
+  lut?: ClipLut
+  /** glowing eyes, lightning eyes... tracked on the person's face */
+  eyes?: EyeFx
 }
+
+/** t is seconds from the start of the clip on the timeline */
+export type Keyframe = { t: number; x: number; y: number; scale: number; rotation: number; opacity: number }
 
 export type Cutout = { mode: 'remove' | 'blur'; threshold: number; feather: number }
 
 export type Aspect = '9:16' | '16:9' | '1:1' | '4:5'
-export type Project = { name: string; aspect: Aspect; tracks: Track[]; clips: Clip[]; assets: Asset[]; ducking?: Ducking }
+export type Project = { name: string; aspect: Aspect; tracks: Track[]; clips: Clip[]; assets: Asset[]; ducking?: Ducking; /** .cube files the user imported */ luts?: CustomLut[] }
 
 export const ASPECTS: Record<Aspect, [number, number]> = { '9:16': [1080, 1920], '16:9': [1920, 1080], '1:1': [1080, 1080], '4:5': [1080, 1350] }
 export const IMAGE_DEFAULT_SECONDS = 4
@@ -70,7 +88,7 @@ export const clipEnd = (c: Clip) => c.start + clipLength(c)
 export const projectDuration = (p: Project) => p.clips.reduce((m, c) => Math.max(m, clipEnd(c)), 0)
 export const trackKindFor = (k: AssetKind): TrackKind => (k === 'audio' ? 'audio' : 'visual')
 /** where in the source a timeline moment falls */
-export const sourceTime = (c: Clip, t: number) => c.in + (t - c.start) * c.speed
+export const sourceTime = (c: Clip, t: number) => (c.reverse ? c.out - (t - c.start) * c.speed : c.in + (t - c.start) * c.speed)
 export const activeAt = (c: Clip, t: number) => t >= c.start && t < clipEnd(c)
 
 // ---------- edits ----------
@@ -91,6 +109,7 @@ export type Action =
   /** replaces every clip on a track (adding the track on top if it's new), e.g. regenerated captions */
   | { type: 'replaceTrackClips'; track: Track; clips: Clip[] }
   | { type: 'setDucking'; ducking: Ducking }
+  | { type: 'addLut'; lut: CustomLut }
   /** moves a video's sound onto its own clip on an audio track, so it can be edited separately */
   | { type: 'detachAudio'; id: string; trackId: string }
 
@@ -111,7 +130,11 @@ export function apply(p: Project, a: Action): Project {
       const c = p.clips.find(x => x.id === a.id)
       if (!c || a.at <= c.start + MIN_CLIP || a.at >= clipEnd(c) - MIN_CLIP) return p
       const cut = sourceTime(c, a.at)
-      return { ...p, clips: p.clips.flatMap(x => (x.id !== c.id ? [x] : [{ ...c, out: cut }, { ...c, id: uid(), start: a.at, in: cut }])) }
+      const [ka, kb] = splitKeys(c, a.at - c.start)
+      // a reversed clip plays its source from the end, so its first half on the timeline is the later part of the file
+      const first: Clip = c.reverse ? { ...c, in: cut, keys: ka } : { ...c, out: cut, keys: ka }
+      const second: Clip = c.reverse ? { ...c, id: uid(), start: a.at, out: cut, keys: kb } : { ...c, id: uid(), start: a.at, in: cut, keys: kb }
+      return { ...p, clips: p.clips.flatMap(x => (x.id !== c.id ? [x] : [first, second])) }
     }
     case 'setTrack': return { ...p, tracks: p.tracks.map(t => (t.id === a.id ? { ...t, ...a.patch } : t)) }
     case 'addTrack': {
@@ -124,6 +147,7 @@ export function apply(p: Project, a: Action): Project {
     case 'rename': return { ...p, name: a.name }
     case 'load': return a.project
     case 'setDucking': return { ...p, ducking: a.ducking }
+    case 'addLut': return { ...p, luts: [...(p.luts ?? []), a.lut] }
     case 'detachAudio': {
       const c = p.clips.find(x => x.id === a.id)
       if (!c) return p
@@ -137,6 +161,8 @@ export function apply(p: Project, a: Action): Project {
     }
   }
 }
+
+import { splitKeys } from './keyframes'
 
 /** First moment on a track at or after `from` where a clip of `length` fits without overlapping anything */
 export function freeSpot(p: Project, trackId: string, from: number, length: number): number {

@@ -1,6 +1,6 @@
 # Light Up
 
-An all-in-one studio for creators: light yourself like a pro on camera, then edit, caption and export your video, all on your own device. It runs as a website and as a Windows app; the Windows app also adds a **Light Up Camera** you can pick in Zoom, Teams, OBS, TikTok Live Studio or the Windows Camera app.
+An all-in-one studio for creators: light yourself like a pro on camera, then edit and export your video, all on your own device. It runs as a website and as a Windows app; the Windows app also adds a **Light Up Camera** you can pick in Zoom, Teams, OBS, TikTok Live Studio or the Windows Camera app.
 
 ## Install (Windows 11)
 
@@ -14,6 +14,7 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 - **1** Bulb: hold up your hand to carry a glowing bulb, or click to place it. **2** Ring light. **3** Window. **4** Natural. **F** full screen.
 - Brightness, colour (warm white through daylight to blue, or an RGB colour), **Auto light**, **Soft skin** and eye catchlights. Auto light measures the skin on your face and keeps it evenly lit in any room.
 - **Background light:** an RGB lamp on the wall behind you (seven colours or a slow rainbow), with its brightness and position. It tints the wall and rims your hair while your face keeps its own light.
+- **Teleprompter:** type or paste a script in the settings; it sits at the top of the screen (not in the video) and scrolls by itself when you press Record, starting from the top each time. Drag it to move by hand, tap to pause.
 - **Hand gestures** (hold the sign for half a second): ✌️ photo after a 3-second countdown, 👍 start or stop recording, ☝️ next light, 👌 then move your hand up or down for brightness. On a touch screen, swipe sideways to change the light and up or down for brightness (except in bulb mode, where a touch places the bulb).
 - **Use in Zoom, Teams & OBS** sends the lit picture to Light Up Camera. **Photo** and **Record** save to Downloads.
 
@@ -22,9 +23,15 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 - **Timeline:** video, photos, music and voice on separate tracks; move, trim, split (**S**), duplicate (**Ctrl+D**), undo/redo, snapping, zoom. Drag on the preview to position things. Projects save themselves on the device.
 - **Looks:** 12 one-tap looks (Cinematic, Golden hour, Vintage, Noir, Teal & orange, …) and colour sliders: brightness, contrast, saturation, warmth, tint, fade, vignette, grain, blur.
 - **Effects:** fade in/out, slow zoom, camera shake, glow, glitch, flash, cinematic bars.
+- **Projects:** every project is kept on the device. The folder button lists them: open, rename, copy or delete one, or start a new one.
+- **Keyframes:** animate a clip's size, position, rotation and opacity. Add keyframes at the playhead, or pick a quick motion (slow zoom, drift, pop in, spin in). Dragging on the preview writes keyframes too.
+- **Reverse, mirror, flip:** play a clip backwards (sound too, in the export; the preview shows the picture only), mirror it, or turn it upside down. **Remove audio** silences a clip and can be undone.
+- **Filters and LUTs:** the 12 looks, ten built-in LUTs (Teal & orange, Bleach bypass, Cyberpunk, …) with a strength slider, and **Import a .cube LUT** for your own.
+- **Eye effects:** glowing eyes, lightning eyes, laser eyes and “Deal with it” pixel shades that follow the person's real eyes (Effects tab).
+- **Memes:** meme text (top and bottom, POV, Nobody:, …) and 28 reaction stickers, plus the sound effects in the Sounds tab.
+- **Voiceover:** record your voice onto the timeline while the video plays, reading from a script that scrolls by itself.
 - **Text (T):** 11 fonts including Hindi and Telugu, 12 styles (caption, subtitle box, highlight, meme, neon, …), wrapping, outline, shadow, gradients, backgrounds, and in/out animations.
 - **Lighting** (Light tab on any video or photo clip): a focus light you can move, colour and soften, the room level, and an RGB background lamp. Uses the same depth relighting as the live camera where WebGPU is available, and a simpler cut-out-based light elsewhere. Preview and export match.
-- **Auto captions** in English, हिन्दी Hindi and తెలుగు Telugu, made on the device. Light Up detects the spoken language (or you choose it), writes it down, and can translate the captions into either of the other two. English uses the model you pick (Fast, Good or Best). Hindi and Telugu always use Whisper large-v3-turbo (about 600 MB, downloads once), because the smaller models get them wrong. Translation uses NLLB-200 (about 900 MB, downloads once, only when needed). Captions are editable text; regenerate or restyle in one step.
 - **Audio:** volume up to 200%, fades, **Enhance voice**, **auto-ducking** (music dips when people talk), detach audio from video, real waveforms, and 18 built-in sound effects you can use anywhere.
 - **Cut-outs & overlays:** remove or blur the background behind a person automatically, refine photo cut-outs with a brush, rounded/circle frames and one-tap picture-in-picture.
 - **Stickers & GIFs:** GIPHY search (needs a free API key), your own uploaded stickers, and a shared library curated by admins. Animated GIFs and WebPs play on the timeline.
@@ -79,13 +86,13 @@ Dev-only helpers: `#/live?video=/clip.mp4` uses a video file as the camera.
 src/App.tsx          Home screen and routes (#/live, #/edit, #/admin)
 src/landing/         Home page (landing) and the lit bust illustration
 src/live/            Live lighting: camera view, settings panel, light rig, auto light, gestures
-src/editor/          Video editor: timeline, preview, export, looks, text, captions, audio, cut-outs, stickers
+src/editor/          Video editor: timeline, preview, export, looks, text, audio, cut-outs, stickers
 src/cloud/           Supabase accounts, sign-in page, cloud projects, usage events
 src/admin/           Admin panel
 src/depth/           DepthART inference and the relighting shader
 desktop/             Electron shell and the Windows virtual camera (desktop/native)
 supabase/schema.sql  Database, security rules and storage for accounts
-public/              Bundled models, MediaPipe and ONNX runtimes
+public/              Bundled models and MediaPipe runtime
 build/               Icon and installer script
 ```
 

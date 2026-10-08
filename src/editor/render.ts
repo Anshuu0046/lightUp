@@ -3,6 +3,9 @@ import { type Fx, type Grade, NO_FX, NO_GRADE } from './looks'
 import { renderText, textMotion } from './text'
 import { personMask } from './segment'
 import { relight } from './relight'
+import { poseAt } from './keyframes'
+import { applyLut, lutData } from './lut'
+import { drawEyeFx, eyesReady, findEyes } from './eyes'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
@@ -18,6 +21,7 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 // scratch canvases, reused every frame
 let layer: OffscreenCanvas | null = null
 let cutLayer: OffscreenCanvas | null = null
+let lutLayer: OffscreenCanvas | null = null
 const grainTiles: OffscreenCanvas[] = []
 function scratch(w: number, h: number) {
   if (!layer) layer = new OffscreenCanvas(w, h)
@@ -28,6 +32,12 @@ function scratch2(w: number, h: number) {
   if (!cutLayer) cutLayer = new OffscreenCanvas(w, h)
   if (cutLayer.width !== w || cutLayer.height !== h) { cutLayer.width = w; cutLayer.height = h }
   return cutLayer
+}
+/** a canvas that is read back every frame (LUTs work pixel by pixel on the CPU) */
+function scratch3(w: number, h: number) {
+  if (!lutLayer) lutLayer = new OffscreenCanvas(w, h)
+  if (lutLayer.width !== w || lutLayer.height !== h) { lutLayer.width = w; lutLayer.height = h }
+  return lutLayer
 }
 function grain(frame: number) {
   if (!grainTiles.length) for (let k = 0; k < 4; k++) {
@@ -54,13 +64,14 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
   const lit = clip.light && fitMode === 'contain' ? relight(src, srcW, srcH, clip.light, clip.id, t) ?? src : src
   const grade = { ...NO_GRADE, ...clip.grade }, fx = { ...NO_FX, ...clip.fx }
   const local = t - clip.start, len = clipLength(clip)
-  let alpha = clip.opacity
+  const pose = poseAt(clip, t)
+  let alpha = pose.opacity
   if (fx.fadeIn > 0) alpha *= clamp01(local / fx.fadeIn)
   if (fx.fadeOut > 0) alpha *= clamp01((len - local) / fx.fadeOut)
   if (alpha <= 0.001) return
   const scale = W / 1080 // effect sizes are designed at 1080 wide
   const push = 1 + fx.zoom * 0.22 * clamp01(local / Math.max(len, 0.01))
-  const fit = (fitMode === 'natural' ? 1 : Math.min(W / srcW, H / srcH)) * clip.transform.scale * push
+  const fit = (fitMode === 'natural' ? 1 : Math.min(W / srcW, H / srcH)) * pose.scale * push
   const w = Math.max(1, Math.round(srcW * fit)), h = Math.max(1, Math.round(srcH * fit))
   // camera shake: smooth wobble built from a few sine waves, stronger with the setting
   const shakeX = fx.shake ? (Math.sin(t * 17.3) + Math.sin(t * 29.1) * 0.5) * fx.shake * 14 * scale : 0
@@ -68,13 +79,21 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
   const shakeR = fx.shake ? Math.sin(t * 13.1) * fx.shake * 0.6 : 0
 
   let picture: CanvasImageSource = lit
-  if (!isPlain(grade, fx)) {
+  const lut = clip.lut && clip.lut.strength > 0 ? lutData(clip.lut.id) : null
+  if (!isPlain(grade, fx) || lut) {
     const L = scratch(w, h), lg = L.getContext('2d')!
     lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1
     lg.clearRect(0, 0, w, h)
     lg.filter = filterFor(grade, scale)
     lg.drawImage(lit, 0, 0, w, h)
     lg.filter = 'none'
+    if (lut) {
+      // a LUT works on pixels, so the picture takes a trip through a canvas that can be read back
+      const T = scratch3(w, h), tg = T.getContext('2d', { willReadFrequently: true })!
+      tg.globalCompositeOperation = 'copy'; tg.drawImage(L, 0, 0)
+      applyLut(tg, w, h, lut, clip.lut!.strength)
+      lg.globalCompositeOperation = 'copy'; lg.drawImage(T, 0, 0); lg.globalCompositeOperation = 'source-over'
+    }
     // colour casts and film looks, layered on top of the picture
     if (grade.warmth) { lg.globalCompositeOperation = 'soft-light'; lg.globalAlpha = Math.abs(grade.warmth) * 0.55; lg.fillStyle = grade.warmth > 0 ? '#ff9a3c' : '#3c8cff'; lg.fillRect(0, 0, w, h) }
     if (grade.tint) { lg.globalCompositeOperation = 'soft-light'; lg.globalAlpha = Math.abs(grade.tint) * 0.45; lg.fillStyle = grade.tint > 0 ? '#ff3cc8' : '#2dd47c'; lg.fillRect(0, 0, w, h) }
@@ -109,8 +128,9 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
 
   g.save()
   g.globalAlpha = alpha
-  g.translate(clip.transform.x * W + shakeX, clip.transform.y * H + shakeY)
-  g.rotate(((clip.transform.rotation + shakeR) * Math.PI) / 180)
+  g.translate(pose.x * W + shakeX, pose.y * H + shakeY)
+  g.rotate(((pose.rotation + shakeR) * Math.PI) / 180)
+  if (clip.flipX || clip.flipY) g.scale(clip.flipX ? -1 : 1, clip.flipY ? -1 : 1)
   if (clip.shape && clip.shape !== 'none') {
     g.beginPath()
     if (clip.shape === 'circle') g.arc(0, 0, Math.min(w, h) / 2, 0, Math.PI * 2)
@@ -139,6 +159,10 @@ export function drawClip(g: Ctx, src: CanvasImageSource, srcW: number, srcH: num
     g.filter = `blur(${(18 * scale).toFixed(1)}px) brightness(1.15)`
     g.drawImage(picture, -w / 2, -h / 2, w, h)
   }
+  if (clip.eyes && fitMode === 'contain' && eyesReady()) {
+    const eyes = findEyes(src as TexImageSource, srcW, srcH, clip.id, t)
+    if (eyes) { g.filter = 'none'; g.globalCompositeOperation = 'source-over'; g.globalAlpha = alpha; drawEyeFx(g, eyes, clip.eyes, w, h, t, local) }
+  }
   g.restore()
 
   if (fx.flash && local < 0.35) { g.save(); g.globalAlpha = (1 - local / 0.35) * 0.9 * alpha; g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.restore() }
@@ -154,6 +178,7 @@ export function drawTextClip(g: Ctx, clip: Clip, W: number, H: number, t: number
   const m = textMotion(clip.text, t - clip.start, clipLength(clip))
   if (m.alpha <= 0.001) return
   const block = renderText(clip.text, W, m.chars)
-  const moved: Clip = { ...clip, opacity: clip.opacity * m.alpha, transform: { ...clip.transform, scale: clip.transform.scale * m.scale, y: clip.transform.y + m.dy } }
+  const pose = poseAt(clip, t)
+  const moved: Clip = { ...clip, keys: undefined, opacity: pose.opacity * m.alpha, transform: { x: pose.x, y: pose.y + m.dy, rotation: pose.rotation, scale: pose.scale * m.scale } }
   drawClip(g, block, block.width, block.height, moved, W, H, t, 'natural')
 }

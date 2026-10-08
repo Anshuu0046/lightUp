@@ -1,4 +1,4 @@
-import { type Asset, type AssetKind, type Project, uid } from './model'
+import { type Asset, type AssetKind, type Project, projectDuration, uid } from './model'
 import { waveImage } from './audio'
 import { frameCount } from './anim'
 
@@ -86,19 +86,46 @@ async function tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRe
   })
 }
 
-export async function saveProject(p: Project) {
+/** What the project list shows, kept apart from the project so listing never has to read a whole document */
+export type ProjectMeta = { id: string; name: string; updated: number; duration: number; clips: number; thumb: string }
+
+const CURRENT = 'lightup-current-project'
+export const currentId = () => { try { return localStorage.getItem(CURRENT) } catch { return null } }
+export const setCurrentId = (id: string) => { try { localStorage.setItem(CURRENT, id) } catch { /* private mode */ } }
+
+/** An empty project isn't worth a place in the list */
+export const isEmpty = (p: Project) => !p.assets.length && !p.clips.length
+
+/** Older versions kept one project under the key "project"; it becomes the first entry in the list */
+async function migrate() {
+  const old = await tx<Project>('readonly', s => s.get('project'))
+  if (!old) return
+  const id = uid()
+  await saveProject(id, old)
+  await tx('readwrite', s => { s.delete('project') })
+  if (!currentId()) setCurrentId(id)
+}
+
+export async function saveProject(id: string, p: Project) {
   const stored = new Set((await tx<IDBValidKey[]>('readonly', s => s.getAllKeys())) ?? [])
+  const first = p.assets.find(a => a.kind === 'video' && a.thumb)
+  const meta: ProjectMeta = { id, name: p.name, updated: Date.now(), duration: projectDuration(p), clips: p.clips.length, thumb: first?.thumb ?? '' }
   await tx('readwrite', s => {
-    s.put(p, 'project')
+    s.put(p, 'proj:' + id)
+    s.put(meta, 'meta:' + id)
     for (const a of p.assets) if (!stored.has('file:' + a.id) && files.has(a.id)) s.put(files.get(a.id)!.file, 'file:' + a.id)
-    // forget files no asset uses any more
-    for (const k of stored) if (typeof k === 'string' && k.startsWith('file:') && !p.assets.some(a => 'file:' + a.id === k)) s.delete(k)
   })
 }
 
-export async function loadProject(): Promise<Project | undefined> {
+export async function listProjects(): Promise<ProjectMeta[]> {
+  await migrate().catch(() => {})
+  const all = (await tx<ProjectMeta[]>('readonly', s => s.getAll(IDBKeyRange.bound('meta:', 'meta:\uffff')))) ?? []
+  return all.sort((a, b) => b.updated - a.updated)
+}
+
+export async function loadProject(id: string): Promise<Project | undefined> {
   try {
-    const p = await tx<Project>('readonly', s => s.get('project'))
+    const p = await tx<Project>('readonly', s => s.get('proj:' + id))
     if (!p) return undefined
     for (const a of p.assets) {
       const f = await tx<Blob>('readonly', s => s.get('file:' + a.id))
@@ -108,4 +135,33 @@ export async function loadProject(): Promise<Project | undefined> {
   } catch { return undefined }
 }
 
-export const clearSaved = () => tx('readwrite', s => s.clear())
+export async function renameProject(id: string, name: string) {
+  const p = await tx<Project>('readonly', s => s.get('proj:' + id))
+  const m = await tx<ProjectMeta>('readonly', s => s.get('meta:' + id))
+  if (!p || !m) return
+  await tx('readwrite', s => { s.put({ ...p, name }, 'proj:' + id); s.put({ ...m, name }, 'meta:' + id) })
+}
+
+/** A copy shares the original's media files (they're stored once, by asset id) */
+export async function duplicateProject(id: string): Promise<string | undefined> {
+  const p = await tx<Project>('readonly', s => s.get('proj:' + id))
+  const m = await tx<ProjectMeta>('readonly', s => s.get('meta:' + id))
+  if (!p || !m) return undefined
+  const copy = uid(), name = `${p.name} copy`
+  await tx('readwrite', s => { s.put({ ...p, name }, 'proj:' + copy); s.put({ ...m, id: copy, name, updated: Date.now() }, 'meta:' + copy) })
+  return copy
+}
+
+export async function deleteProject(id: string) {
+  await tx('readwrite', s => { s.delete('proj:' + id); s.delete('meta:' + id) })
+  await forgetUnusedFiles()
+}
+
+/** Removes stored media that no project uses any more */
+export async function forgetUnusedFiles() {
+  const projects = (await tx<Project[]>('readonly', s => s.getAll(IDBKeyRange.bound('proj:', 'proj:\uffff')))) ?? []
+  const used = new Set(projects.flatMap(p => p.assets.map(a => 'file:' + a.id)))
+  const keys = (await tx<IDBValidKey[]>('readonly', s => s.getAllKeys())) ?? []
+  const orphans = keys.filter(k => typeof k === 'string' && k.startsWith('file:') && !used.has(k))
+  if (orphans.length) await tx('readwrite', s => { for (const k of orphans) s.delete(k) })
+}
