@@ -237,7 +237,7 @@ export default function Editor() {
       <a className="ed-btn ghost" href="#" aria-label="Home"><ArrowLeft size={16} /></a>
       <input className="ed-name" value={project.name} onChange={e => h.live({ type: 'rename', name: e.target.value })} aria-label="Project name" />
       <select className="ed-select" value={project.aspect} onChange={e => h.commit({ type: 'setAspect', aspect: e.target.value as Aspect })} aria-label="Frame shape">
-        {(Object.keys(ASPECTS) as Aspect[]).map(a => <option key={a} value={a}>{a === '9:16' ? '9:16 Reels, Shorts, TikTok' : a === '16:9' ? '16:9 YouTube' : a === '1:1' ? '1:1 Square' : '4:5 Instagram post'}</option>)}
+        {(Object.keys(ASPECTS) as Aspect[]).map(a => <option key={a} value={a}>{a === '9:16' ? '9:16 · Reels' : a === '16:9' ? '16:9 · YouTube' : a === '1:1' ? '1:1 · Square' : '4:5 · Post'}</option>)}
       </select>
       <span className="ed-spacer" />
       <button className="ed-btn ghost" onClick={h.undo} disabled={!h.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)"><Undo2 size={16} /></button>
@@ -245,7 +245,7 @@ export default function Editor() {
       <button className="ed-btn ghost" onClick={openProjects} aria-label="Your projects" title="Your projects"><FolderOpen size={16} /><span className="wide-only">Projects</span></button>
       {cloudEnabled && <button className="ed-btn ghost" onClick={() => setCloudOpen(true)} aria-label="Your projects" title="Save to or open from your account"><Cloud size={16} /></button>}
       <AccountButton />
-      <button className="ed-btn primary" onClick={() => setExporting(true)} disabled={!duration}><Download size={15} /> Export</button>
+      <button className="ed-btn primary" onClick={() => setExporting(true)} disabled={!duration}><Download size={15} /><span className="export-label">Export</span></button>
     </header>
 
     <div className="ed-main">

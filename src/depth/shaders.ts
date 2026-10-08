@@ -539,7 +539,8 @@ export const relightFragment = tgpu.fragmentFn({
   const highlight = lobe * (SPECULAR_F0 + (1 - SPECULAR_F0) * grazing);
 
   const back = relightLayout.$.params.backColor;
-  const far = 1 - std.smoothstep(0.3, 0.6, surface.w);
+  // a wide, soft hand-over from wall to person: on phones the depth guess around the head is rough, and a narrow one shows as a hard-edged blob of untinted wall
+  const far = 1 - std.smoothstep(0.22, 0.78, surface.w);
   let lit = albedo * AMBIENT_FILL * (relightLayout.$.params.exposure * occlusion * (1 - far * std.saturate(back.w * 2) * BACK_DIM));
   lit += albedo * tint * (lambert * falloff * shadow * relightLayout.$.params.intensity);
   lit +=

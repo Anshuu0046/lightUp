@@ -135,8 +135,9 @@ function beam(g: Ctx, e: { x: number; y: number; r: number }, fx: EyeFx, side: n
 function shades(g: Ctx, pair: { x: number; y: number; r: number }[], fx: EyeFx, local: number) {
   const [l, r] = pair
   const cx = (l.x + r.x) / 2, cy = (l.y + r.y) / 2, D = Math.max(8, Math.hypot(r.x - l.x, r.y - l.y)), roll = Math.atan2(r.y - l.y, r.x - l.x)
-  const u = Math.min(1, local / 0.55)
-  const fall = (1 - u) ** 3 * -D * 3.5 // eased drop from above
+  // they slide down from just above the forehead, so they're in view even on a still preview frame
+  const u = Math.min(1, local / 0.4)
+  const fall = (1 - u) ** 3 * -D * 1.0
   const px = D * 0.09 * fx.size // one "pixel" of the pixel art
   const lensW = D * 0.92 * fx.size
   g.translate(cx, cy + fall); g.rotate(roll)

@@ -31,7 +31,7 @@ export function Teleprompter({ script, running, speed, size, className = '' }: {
     if (!running || paused) return
     let raf = 0, last = performance.now()
     const loop = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000); last = now
+      const dt = Math.min(0.25, (now - last) / 1000); last = now
       // about one line per 1.6 seconds at the middle setting, so a normal speaking pace
       if (!drag.current) { offset.current = Math.min(limit(), offset.current + dt * size * 0.168 * speed); place() }
       raf = requestAnimationFrame(loop)
