@@ -133,18 +133,6 @@
 .playhead { position: absolute; top: 4px; bottom: 4px; left: 12px; width: 2px; transform: translateX(calc(var(--p) * (100cqw - 24px))); background: #ffc187; box-shadow: 0 0 10px rgba(255, 193, 135, .8) }
 .chip { position: absolute; padding: 10px 16px; border-radius: 999px; background: rgba(24, 22, 31, .94); border: 1px solid rgba(255, 255, 255, .1); font-size: 13px; font-weight: 700; color: #ece6f2; white-space: nowrap; box-shadow: 0 10px 24px rgba(0, 0, 0, .4); transform: translate3d(0, calc((var(--p) - .5) * var(--d) * -170px), calc(var(--d) * 70px)); opacity: calc(min(1, var(--p) * 3)) }
 
-/* ---------- 5. captions ---------- */
-.captions-scene { position: relative; display: grid; justify-items: center; gap: 56px; padding: 20vh 20px 14vh; text-align: center }
-.captions-scene .lead { margin: 24px auto 0 }
-.capdemo { position: relative; width: min(880px, 100%); padding: clamp(28px, 5vw, 56px) clamp(18px, 4vw, 48px) 26px; border-radius: 30px; background: radial-gradient(80% 90% at 50% 0%, #1c1822, #0b0a0f); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07), 0 24px 50px rgba(0, 0, 0, .45); overflow: hidden }
-.cap-langs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .05) }
-.cap-langs span { padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; color: #8d8696; transition: background .5s, color .5s }
-.cap-langs span.on { background: #f6efe6; color: #141218 }
-.cap-line { min-height: 2.6em; margin: 34px 0 30px; font: 800 clamp(26px, 4.6vw, 54px)/1.25 var(--sans); letter-spacing: -.01em }
-.cap-line span { display: inline-block; margin-right: .28em; opacity: .16; animation: say .5s var(--land-ease) forwards, said .9s ease forwards; animation-delay: calc(var(--w) * .32s), calc(var(--w) * .32s) }
-@keyframes say { from { opacity: .16; transform: translateY(10px) } to { opacity: 1; transform: none } }
-@keyframes said { 0% { color: #ffd84a } 60% { color: #ffd84a } 100% { color: #fff } }
-.cap-wave { display: block; width: 288px; max-width: 100%; height: 40px; margin: 0 auto }
 
 /* ---------- 6. everywhere ---------- */
 .get { padding: 14vh clamp(20px, 7vw, 110px); text-align: center }
@@ -266,5 +254,5 @@
   .mock-wrap { width: min(1040px, 92vw, (100svh - 130px) * 16 / 9.4) }
   .chip { display: none }
   .rgb-scene { padding-top: 14vh; padding-bottom: 14vh }
-  .captions-scene, .get { padding-top: 14vh }
+  .get { padding-top: 14vh }
 }

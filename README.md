@@ -1,6 +1,6 @@
 # Light Up
 
-An all-in-one studio for creators: light yourself like a pro on camera, then edit, caption and export your video, all on your own device. It runs as a website and as a Windows app; the Windows app also adds a **Light Up Camera** you can pick in Zoom, Teams, OBS, TikTok Live Studio or the Windows Camera app.
+An all-in-one studio for creators: light yourself like a pro on camera, then edit and export your video, all on your own device. It runs as a website and as a Windows app; the Windows app also adds a **Light Up Camera** you can pick in Zoom, Teams, OBS, TikTok Live Studio or the Windows Camera app.
 
 ## Install (Windows 11)
 
@@ -24,7 +24,6 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 - **Effects:** fade in/out, slow zoom, camera shake, glow, glitch, flash, cinematic bars.
 - **Text (T):** 11 fonts including Hindi and Telugu, 12 styles (caption, subtitle box, highlight, meme, neon, …), wrapping, outline, shadow, gradients, backgrounds, and in/out animations.
 - **Lighting** (Light tab on any video or photo clip): a focus light you can move, colour and soften, the room level, and an RGB background lamp. Uses the same depth relighting as the live camera where WebGPU is available, and a simpler cut-out-based light elsewhere. Preview and export match.
-- **Auto captions** in English, हिन्दी Hindi and తెలుగు Telugu, made on the device. Light Up detects the spoken language (or you choose it), writes it down, and can translate the captions into either of the other two. English uses the model you pick (Fast, Good or Best). Hindi and Telugu always use Whisper large-v3-turbo (about 600 MB, downloads once), because the smaller models get them wrong. Translation uses NLLB-200 (about 900 MB, downloads once, only when needed). Captions are editable text; regenerate or restyle in one step.
 - **Audio:** volume up to 200%, fades, **Enhance voice**, **auto-ducking** (music dips when people talk), detach audio from video, real waveforms, and 18 built-in sound effects you can use anywhere.
 - **Cut-outs & overlays:** remove or blur the background behind a person automatically, refine photo cut-outs with a brush, rounded/circle frames and one-tap picture-in-picture.
 - **Stickers & GIFs:** GIPHY search (needs a free API key), your own uploaded stickers, and a shared library curated by admins. Animated GIFs and WebPs play on the timeline.
@@ -79,13 +78,13 @@ Dev-only helpers: `#/live?video=/clip.mp4` uses a video file as the camera.
 src/App.tsx          Home screen and routes (#/live, #/edit, #/admin)
 src/landing/         Home page (landing) and the lit bust illustration
 src/live/            Live lighting: camera view, settings panel, light rig, auto light, gestures
-src/editor/          Video editor: timeline, preview, export, looks, text, captions, audio, cut-outs, stickers
+src/editor/          Video editor: timeline, preview, export, looks, text, audio, cut-outs, stickers
 src/cloud/           Supabase accounts, sign-in page, cloud projects, usage events
 src/admin/           Admin panel
 src/depth/           DepthART inference and the relighting shader
 desktop/             Electron shell and the Windows virtual camera (desktop/native)
 supabase/schema.sql  Database, security rules and storage for accounts
-public/              Bundled models, MediaPipe and ONNX runtimes
+public/              Bundled models and MediaPipe runtime
 build/               Icon and installer script
 ```
 

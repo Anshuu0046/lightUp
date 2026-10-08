@@ -31,7 +31,6 @@
     "@fontsource/pacifico": "^5.3.0",
     "@fontsource/permanent-marker": "^5.3.0",
     "@fontsource/poppins": "^5.3.0",
-    "@huggingface/transformers": "^4.3.1",
     "@mediapipe/tasks-vision": "^1.1.0",
     "@supabase/supabase-js": "^2.117.3",
     "@types/react": "^19.2.18",
@@ -51,7 +50,7 @@
   },
   "main": "desktop/main.cjs",
   "productName": "Light Up",
-  "description": "All-in-one creator studio: realistic live lighting with a virtual camera, plus a video editor with looks, text, captions in English, Hindi and Telugu, audio tools, cut-outs and stickers.",
+  "description": "All-in-one creator studio: realistic live lighting with a virtual camera, plus a video editor with looks, text, keyframes, LUTs, eye effects, a teleprompter, audio tools, cut-outs and stickers.",
   "author": "Light Up",
   "license": "UNLICENSED",
   "build": {

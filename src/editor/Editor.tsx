@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Captions, Cloud, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
+import { ArrowLeft, Cloud, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
 import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, textClip, trackKindFor, uid } from './model'
 import { BASE_TEXT, ensureFont } from './text'
 import { layersAt } from './render'
 import { isNative, saveFile } from '../native'
-import { CaptionsDialog } from './CaptionsDialog'
 import { SoundsPanel } from './SoundsPanel'
 import { CutoutEditor } from './CutoutEditor'
 import { StickersPanel } from './StickersPanel'
@@ -34,7 +33,6 @@ export default function Editor() {
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState('')
   const [exporting, setExporting] = useState(false)
-  const [captioning, setCaptioning] = useState(false)
   const [refining, setRefining] = useState(false)
   const [cloudOpen, setCloudOpen] = useState(false)
   const [cloudId, setCloudId] = useState<string | null>(() => { try { return localStorage.getItem('lightup-cloud-id') } catch { return null } })
@@ -252,7 +250,6 @@ export default function Editor() {
       <button className="ed-btn small" onClick={split} title="Split at playhead (S)"><Scissors size={14} /> Split</button>
       <button className="ed-btn small" onClick={remove} disabled={!selected} title="Delete (Del)"><Trash2 size={14} /> Delete</button>
       <button className="ed-btn small" onClick={addText} title="Add text (T)"><Type size={14} /> Text</button>
-      <button className="ed-btn small" onClick={() => setCaptioning(true)} disabled={!duration}><Captions size={14} /> Captions</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'visual' })}><Plus size={14} /> Overlay track</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'audio' })}><Plus size={14} /> Audio track</button>
       <span className="ed-spacer" />
@@ -263,7 +260,6 @@ export default function Editor() {
       onDropAsset={(id, trackId, at) => { const a = project.assets.find(x => x.id === id); if (a) place(a, trackId, at) }}
       edit={h} />
 
-    {captioning && <CaptionsDialog project={project} onClose={() => setCaptioning(false)} onApply={(track, clips) => { h.commit({ type: 'replaceTrackClips', track, clips }); setToast(`Added ${clips.length} captions. Click one to edit its words.`) }} />}
     {refining && clip && asset?.kind === 'image' && <CutoutEditor asset={asset} onClose={() => setRefining(false)} onApply={async file => {
       setRefining(false)
       try { const cut = await importFile(file); h.commit({ type: 'addAsset', asset: cut }); h.commit({ type: 'updateClip', id: clip.id, patch: { assetId: cut.id, cutout: undefined } }); setToast('Cut-out applied. The original photo is still in your media.') }
