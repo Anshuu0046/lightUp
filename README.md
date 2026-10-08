@@ -14,7 +14,6 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 - **1** Bulb: hold up your hand to carry a glowing bulb, or click to place it. **2** Ring light. **3** Window. **4** Natural. **F** full screen.
 - Brightness, colour (warm white through daylight to blue, or an RGB colour), **Auto light**, **Soft skin** and eye catchlights. Auto light measures the skin on your face and keeps it evenly lit in any room.
 - **Background light:** an RGB lamp on the wall behind you (seven colours or a slow rainbow), with its brightness and position. It tints the wall and rims your hair while your face keeps its own light.
-- **Teleprompter:** type or paste a script in the settings; it sits at the top of the screen (not in the video) and scrolls by itself when you press Record, starting from the top each time. Drag it to move by hand, tap to pause.
 - **Hand gestures** (hold the sign for half a second): ✌️ photo after a 3-second countdown, 👍 start or stop recording, ☝️ next light, 👌 then move your hand up or down for brightness. On a touch screen, swipe sideways to change the light and up or down for brightness (except in bulb mode, where a touch places the bulb).
 - **Use in Zoom, Teams & OBS** sends the lit picture to Light Up Camera. **Photo** and **Record** save to Downloads.
 
@@ -29,7 +28,8 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 - **Filters and LUTs:** the 12 looks, ten built-in LUTs (Teal & orange, Bleach bypass, Cyberpunk, …) with a strength slider, and **Import a .cube LUT** for your own.
 - **Eye effects:** glowing eyes, lightning eyes, laser eyes and “Deal with it” pixel shades that follow the person's real eyes (Effects tab).
 - **Memes:** meme text (top and bottom, POV, Nobody:, …) and 28 reaction stickers, plus the sound effects in the Sounds tab.
-- **Voiceover:** record your voice onto the timeline while the video plays, reading from a script that scrolls by itself.
+- **Voiceover and teleprompter:** record your voice onto the timeline while the video plays, reading from a script that scrolls by itself (drag to move it, tap to pause, or hide it). Background noise is removed from the recording unless you switch it off.
+- **Remove background noise:** on any clip with sound (Adjust tab), choose Gentle, Normal or Strong. Hiss, fans and room hum are taken out and the clean sound is added as a new clip.
 - **Text (T):** 11 fonts including Hindi and Telugu, 12 styles (caption, subtitle box, highlight, meme, neon, …), wrapping, outline, shadow, gradients, backgrounds, and in/out animations.
 - **Lighting** (Light tab on any video or photo clip): a focus light you can move, colour and soften, the room level, and an RGB background lamp. Uses the same depth relighting as the live camera where WebGPU is available, and a simpler cut-out-based light elsewhere. Preview and export match.
 - **Audio:** volume up to 200%, fades, **Enhance voice**, **auto-ducking** (music dips when people talk), detach audio from video, real waveforms, and 18 built-in sound effects you can use anywhere.

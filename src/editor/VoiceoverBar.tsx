@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Circle, Mic, Square, X } from 'lucide-react'
 import { Teleprompter, useScript } from '../Teleprompter'
 import { encodeWav } from './audio'
+import { denoise } from './denoise'
 
 /**
  * Records your voice onto the timeline while the video plays, with the script scrolling for you to read.
@@ -11,6 +12,9 @@ export function VoiceoverBar({ onBegin, onPlay, onPause, onDone, onClose }: { on
   const { script, setScript, tele, setTele } = useScript()
   const [recording, setRecording] = useState(false)
   const [along, setAlong] = useState(true)
+  const [clean, setClean] = useState(true)
+  const [showScript, setShowScript] = useState(true)
+  const cleanRef = useRef(true); cleanRef.current = clean
   const [editing, setEditing] = useState(!script.trim())
   const [secs, setSecs] = useState(0)
   const [error, setError] = useState('')
@@ -30,7 +34,8 @@ export function VoiceoverBar({ onBegin, onPlay, onPause, onDone, onClose }: { on
       mic.getTracks().forEach(t => t.stop())
       try {
         const blob = new Blob(chunks, { type: mr.mimeType })
-        const buf = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(await blob.arrayBuffer())
+        let buf = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(await blob.arrayBuffer())
+        if (cleanRef.current) buf = await denoise(buf, 'normal')
         onDone(new File([encodeWav(buf)], 'Voiceover.wav', { type: 'audio/wav' }))
       } catch { setError('Couldn’t read that recording. Try again.') }
     }
@@ -45,15 +50,17 @@ export function VoiceoverBar({ onBegin, onPlay, onPause, onDone, onClose }: { on
       <b><Mic size={14} /> Voiceover</b>
       <button className="ed-btn ghost small" onClick={() => { if (recording) stop(); onClose() }} aria-label="Close voiceover"><X size={15} /></button>
     </div>
-    {editing && !recording
+    {!showScript ? null : editing && !recording
       ? <textarea className="ed-textarea" rows={4} autoFocus value={script} placeholder="Type or paste your script. It scrolls while you record." onChange={e => setScript(e.target.value)} />
       : <div className="vo-tele"><Teleprompter script={script} running={recording} speed={tele.speed} size={Math.min(tele.size, 30)} /></div>}
     <div className="vo-row">
-      {!recording && <button className="ed-btn small" onClick={() => setEditing(e => !e)}>{editing ? 'Preview script' : 'Edit script'}</button>}
+      <button className="ed-btn small" onClick={() => setShowScript(v => !v)}>{showScript ? 'Hide script' : 'Show script'}</button>
+      {showScript && !recording && <button className="ed-btn small" onClick={() => setEditing(e => !e)}>{editing ? 'Preview script' : 'Edit script'}</button>}
+      <label className="ed-mini"><input type="checkbox" checked={clean} disabled={recording} onChange={e => setClean(e.target.checked)} /> Remove background noise</label>
       <label className="ed-mini"><input type="checkbox" checked={along} disabled={recording} onChange={e => setAlong(e.target.checked)} /> Play the video while I talk</label>
     </div>
     <div className="vo-row">
-      <label className="ed-mini">Speed <input type="range" min="1" max="10" value={tele.speed} onChange={e => setTele({ speed: +e.target.value })} /></label>
+      {showScript ? <label className="ed-mini">Speed <input type="range" min="1" max="10" value={tele.speed} onChange={e => setTele({ speed: +e.target.value })} /></label> : <span />}
       {recording
         ? <button className="ed-btn danger" onClick={stop}><Square size={13} /> Stop {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</button>
         : <button className="ed-btn primary" onClick={start}><Circle size={13} /> Record from the playhead</button>}
