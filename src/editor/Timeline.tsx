@@ -103,14 +103,26 @@ export function Timeline({ project, time, pps, selected, playing, onSelect, onSe
       } else if (mode === 'left') {
         const start = Math.min(snap(clip.start + dt), clipEnd(clip) - MIN_CLIP)
         const shift = (start - clip.start) * clip.speed
-        const inPoint = clip.in + shift
-        if (inPoint < 0) return
-        patch = { start, in: inPoint }
+        // the keyframes stay on the same moments of the picture when the front of the clip moves
+        const keys = clip.keys?.map(k => ({ ...k, t: k.t - (start - clip.start) }))
+        if (clip.reverse) {
+          // a reversed clip's front is the end of the file
+          const out = clip.out - shift
+          if (out > (asset?.duration ?? out) + 1e-6) return
+          patch = { start, out, keys }
+        } else {
+          const inPoint = clip.in + shift
+          if (inPoint < 0) return
+          patch = { start, in: inPoint, keys }
+        }
       } else {
         const end = Math.max(snap(clipEnd(clip) + dt), clip.start + MIN_CLIP)
-        const out = clip.in + (end - clip.start) * clip.speed
-        // photos can be held as long as you like; video and audio stop at the end of the file
-        patch = { out: !asset || asset.kind === 'image' ? out : Math.min(out, asset.duration) }
+        if (clip.reverse) patch = { in: Math.max(0, clip.out - (end - clip.start) * clip.speed) }
+        else {
+          const out = clip.in + (end - clip.start) * clip.speed
+          // photos can be held as long as you like; video and audio stop at the end of the file
+          patch = { out: !asset || asset.kind === 'image' ? out : Math.min(out, asset.duration) }
+        }
       }
       if (!collides(project, { ...clip, ...patch })) edit.live({ type: 'updateClip', id: clip.id, patch })
     }
@@ -159,6 +171,7 @@ function ClipView({ clip, asset, sound, pps, selected, onGrab }: { clip: Clip; a
   if (clip.text) return <div className={`tl-clip text ${selected ? 'selected' : ''}`} style={{ left: clip.start * pps, width: Math.max(4, clipLength(clip) * pps) }} onPointerDown={e => onGrab(e, clip, 'move')} title={clip.text.content}>
     <i className="tl-trim left" onPointerDown={e => onGrab(e, clip, 'left')} />
     <span className="tl-label">T  {clip.text.content.replace(/\n/g, ' ')}</span>
+    {clip.keys?.map((k, i) => <i key={i} className="tl-key" style={{ left: k.t * pps }} />)}
     <i className="tl-trim right" onPointerDown={e => onGrab(e, clip, 'right')} />
   </div>
   if (!asset) return null
@@ -172,7 +185,8 @@ function ClipView({ clip, asset, sound, pps, selected, onGrab }: { clip: Clip; a
   } else if (!sound && asset.thumb) style.backgroundImage = `url(${asset.thumb})`
   return <div className={`tl-clip ${sound ? 'audio' : asset.kind} ${selected ? 'selected' : ''}`} style={style} onPointerDown={e => onGrab(e, clip, 'move')} title={asset.name}>
     <i className="tl-trim left" onPointerDown={e => onGrab(e, clip, 'left')} />
-    <span className="tl-label">{clip.speed !== 1 && <b>{clip.speed}×</b>}{asset.name}</span>
+    <span className="tl-label">{clip.speed !== 1 && <b>{clip.speed}×</b>}{clip.reverse && <b>◀</b>}{clip.muted && <b>🔇</b>}{asset.name}</span>
+    {clip.keys?.map((k, i) => <i key={i} className="tl-key" style={{ left: k.t * pps }} />)}
     <i className="tl-trim right" onPointerDown={e => onGrab(e, clip, 'right')} />
   </div>
 }

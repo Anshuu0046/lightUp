@@ -3,6 +3,8 @@ import { ArrowLeft, Cloud, Download, Film, Image as ImageIcon, Music, Pause, Pla
 import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, textClip, trackKindFor, uid } from './model'
 import { BASE_TEXT, ensureFont } from './text'
 import { layersAt } from './render'
+import { poseAt, withPose } from './keyframes'
+import { parseCube } from './lut'
 import { isNative, saveFile } from '../native'
 import { SoundsPanel } from './SoundsPanel'
 import { CutoutEditor } from './CutoutEditor'
@@ -62,7 +64,7 @@ export default function Editor() {
   useEffect(() => { player.current?.setProject(project) }, [project])
 
   // music ducking: work out where people talk whenever the sound changes (off the critical path)
-  const soundKey = JSON.stringify([project.ducking, project.tracks.map(t => [t.id, t.muted]), project.clips.filter(c => project.assets.find(a => a.id === c.assetId)?.hasAudio).map(c => [c.trackId, c.start, c.in, c.out, c.speed, c.volume, c.audio])])
+  const soundKey = JSON.stringify([project.ducking, project.tracks.map(t => [t.id, t.muted]), project.clips.filter(c => project.assets.find(a => a.id === c.assetId)?.hasAudio).map(c => [c.trackId, c.start, c.in, c.out, c.speed, c.volume, c.audio, c.muted, c.reverse])])
   useEffect(() => {
     if (!project.ducking?.on) { player.current?.setDucking(null); return }
     const t = setTimeout(async () => {
@@ -115,10 +117,12 @@ export default function Editor() {
     const onTop = layersAt(project, time)
     const target = clip && onTop.some(c => c.id === clip.id) ? clip : onTop[onTop.length - 1]
     let moved = false
+    const base = target ? poseAt(target, time) : { x: 0, y: 0 }
     const move = (ev: PointerEvent) => {
       if (!moved) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5 || !target) return; moved = true; h.begin(); setSelected(target.id) }
       const dx = (ev.clientX - x0) / box.width, dy = (ev.clientY - y0) / box.height
-      h.live({ type: 'updateClip', id: target!.id, patch: { transform: { ...target!.transform, x: target!.transform.x + dx, y: target!.transform.y + dy } } })
+      // the picture moves from where it was when the drag began; an animated clip writes into the keyframe at the playhead
+      h.live({ type: 'updateClip', id: target!.id, patch: withPose(target!, time, { x: base.x + dx, y: base.y + dy }) })
     }
     const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); if (moved) h.end(); else toggle() }
     addEventListener('pointermove', move); addEventListener('pointerup', up)
@@ -147,6 +151,14 @@ export default function Editor() {
     const c = { ...clipFor(asset, track.id, time), transform: { x: 0.5, y: 0.35, scale: 0.42, rotation: 0 } }
     h.commit({ type: 'addClip', clip: c, fit: 'near' })
     setSelected(c.id)
+  }
+  const importLut = async (file: File) => {
+    if (!clip) return
+    try {
+      const lut = parseCube(await file.text(), file.name)
+      h.commit({ type: 'addLut', lut })
+      h.commit({ type: 'updateClip', id: clip.id, patch: { lut: { id: lut.id, strength: 1 } } })
+    } catch (e) { setToast(e instanceof Error ? e.message : 'That LUT couldn’t be read.') }
   }
   const remove = () => { if (selected) { h.commit({ type: 'removeClips', ids: [selected] }); setSelected(null) } }
   const duplicate = () => {
@@ -241,7 +253,7 @@ export default function Editor() {
 
       <aside className={`ed-side inspector ${panel === 'edit' ? 'show' : ''}`}>
         {clip && (asset || clip.text) ? <>
-          <Inspector key={clip.id} project={project} clip={clip} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} onRefine={() => setRefining(true)} />
+          <Inspector key={clip.id} project={project} clip={clip} time={time} onSeek={seek} onLut={importLut} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} onRefine={() => setRefining(true)} />
         </> : <div className="ed-nothing"><b>Nothing selected</b><small>Tap a clip on the timeline, then open this tab to adjust it, give it a look, or add effects.</small></div>}
       </aside>
     </div>

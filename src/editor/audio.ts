@@ -80,7 +80,7 @@ export function clipChain(ctx: AnyCtx, source: AudioNode, clip: Clip): { out: Au
 export function clipGainAt(clip: Clip, t: number) {
   const a = { ...NO_AUDIO, ...clip.audio }
   const local = t - clip.start, len = clipLength(clip)
-  let g = clip.volume
+  let g = clip.muted ? 0 : clip.volume
   if (a.fadeIn > 0) g *= Math.min(1, Math.max(0, local / a.fadeIn))
   if (a.fadeOut > 0) g *= Math.min(1, Math.max(0, (len - local) / a.fadeOut))
   return g
@@ -89,7 +89,7 @@ export function clipGainAt(clip: Clip, t: number) {
 /** Writes the fades into an offline gain parameter */
 export function automateFades(param: AudioParam, clip: Clip) {
   const a = { ...NO_AUDIO, ...clip.audio }
-  const s = clip.start, e = clipEnd(clip), v = clip.volume
+  const s = clip.start, e = clipEnd(clip), v = clip.muted ? 0 : clip.volume
   param.setValueAtTime(a.fadeIn > 0 ? 0 : v, s)
   if (a.fadeIn > 0) param.linearRampToValueAtTime(v, s + Math.min(a.fadeIn, e - s))
   if (a.fadeOut > 0) { param.setValueAtTime(v, Math.max(s, e - a.fadeOut)); param.linearRampToValueAtTime(0, e) }

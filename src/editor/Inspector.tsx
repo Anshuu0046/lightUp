@@ -1,6 +1,10 @@
 import { useState } from 'react'
-import { Copy, Lightbulb, Scissors, Sparkles, Trash2 } from 'lucide-react'
-import { type Asset, type Clip, collides, type Project } from './model'
+import { useEffect, useRef } from 'react'
+import { Copy, Diamond, Lightbulb, Scissors, Sparkles, Trash2, Upload } from 'lucide-react'
+import { type Asset, type Clip, clipLength, collides, type Project } from './model'
+import { MOTIONS, motionKeys, type Pose, poseAt, setKey, withPose } from './keyframes'
+import { applyLut, BUILTIN_LUTS, lutData, setCustomLuts } from './lut'
+import { EYE_COLORS, EYE_FX, type EyeKind } from './eyes'
 import { type Fx, type Grade, NO_FX, NO_GRADE, PRESETS, thumbFilter } from './looks'
 import { type ClipAudio, NO_AUDIO } from './audio'
 import { DEFAULT_LIGHTING, type Lighting, relightReady } from './relight'
@@ -14,7 +18,7 @@ type Edit = {
   commit: (a: { type: 'updateClip'; id: string; patch: Partial<Clip> }) => void
 }
 
-type Props = { project: Project; clip: Clip; asset?: Asset; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void; onDetach?: () => void; onRefine?: () => void }
+type Props = { project: Project; clip: Clip; asset?: Asset; time: number; onSeek: (t: number) => void; onLut: (file: File) => void; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void; onDetach?: () => void; onRefine?: () => void }
 
 /** A slider whose whole drag is one undo step */
 function Range({ label, value, min, max, unit = '', step = 1, edit, onChange }: { label: string; value: number; min: number; max: number; unit?: string; step?: number; edit: Edit; onChange: (v: number) => void }) {
@@ -27,7 +31,7 @@ function Toggle({ label, hint, on, onChange }: { label: string; hint?: string; o
   return <label className="ed-toggle"><span>{label}{hint && <small>{hint}</small>}</span><input type="checkbox" checked={on} onChange={e => onChange(e.target.checked)} /><i /></label>
 }
 
-export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, onRemove, onError, onDetach, onRefine }: Props) {
+export function Inspector({ project, clip, asset, time, onSeek, onLut, edit, onSplit, onDuplicate, onRemove, onError, onDetach, onRefine }: Props) {
   const visual = !asset || asset.kind !== 'audio'
   const text = clip.text
   const tabs = text ? (['text', 'adjust', 'fx'] as const) : (['adjust', 'look', 'light', 'fx'] as const)
@@ -41,6 +45,12 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
     edit.commit({ type: 'updateClip', id: clip.id, patch })
   }
   const pct = (v: number) => Math.round(v * 100)
+  setCustomLuts(project.luts)
+  const pose = poseAt(clip, time)
+  const poseLive = (p: Partial<Pose>) => live(withPose(clip, time, p))
+  const local = time - clip.start
+  const keys = clip.keys ?? []
+  const addKey = () => edit.commit({ type: 'updateClip', id: clip.id, patch: { keys: setKey(keys, local, pose) } })
   const sound = { ...NO_AUDIO, ...clip.audio }
   const setSound = (p: Partial<ClipAudio>) => live({ audio: { ...sound, ...p } })
   const onVisual = project.tracks.find(t => t.id === clip.trackId)?.kind === 'visual'
@@ -57,11 +67,25 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
 
     {(!visual || tab === 'adjust') && <>
       {visual && <>
-        <Range label="Size" value={pct(clip.transform.scale)} min={10} max={300} unit="%" edit={edit} onChange={v => live({ transform: { ...clip.transform, scale: v / 100 } })} />
-        <Range label="Left / right" value={pct(clip.transform.x)} min={-50} max={150} unit="%" edit={edit} onChange={v => live({ transform: { ...clip.transform, x: v / 100 } })} />
-        <Range label="Up / down" value={pct(clip.transform.y)} min={-50} max={150} unit="%" edit={edit} onChange={v => live({ transform: { ...clip.transform, y: v / 100 } })} />
-        <Range label="Rotate" value={clip.transform.rotation} min={-180} max={180} unit="°" edit={edit} onChange={v => live({ transform: { ...clip.transform, rotation: v } })} />
-        <Range label="Opacity" value={pct(clip.opacity)} min={0} max={100} unit="%" edit={edit} onChange={v => live({ opacity: v / 100 })} />
+        <Range label="Size" value={pct(pose.scale)} min={10} max={300} unit="%" edit={edit} onChange={v => poseLive({ scale: v / 100 })} />
+        <Range label="Left / right" value={pct(pose.x)} min={-50} max={150} unit="%" edit={edit} onChange={v => poseLive({ x: v / 100 })} />
+        <Range label="Up / down" value={pct(pose.y)} min={-50} max={150} unit="%" edit={edit} onChange={v => poseLive({ y: v / 100 })} />
+        <Range label="Rotate" value={Math.round(pose.rotation)} min={-180} max={180} unit="°" edit={edit} onChange={v => poseLive({ rotation: v })} />
+        <Range label="Opacity" value={pct(pose.opacity)} min={0} max={100} unit="%" edit={edit} onChange={v => poseLive({ opacity: v / 100 })} />
+        <div className="ed-card"><b className="ed-card-title">Keyframes</b>
+          <small className="ed-note">Animate size, position, rotation and opacity. Add a keyframe, move the playhead, change a setting above, and Light Up fills in the motion between.</small>
+          <button className="ed-btn block" disabled={local < -0.001 || local > clipLength(clip) + 0.001} onClick={addKey}><Diamond size={14} /> Add keyframe at playhead</button>
+          <div className="ed-field"><span>Quick motion</span><div className="ed-chips">{MOTIONS.map(m => <button key={m.id} onClick={() => commit({ keys: motionKeys(clip, m.id, clipLength(clip)) })}>{m.name}</button>)}</div></div>
+          {keys.length > 0 && <>
+            <ul className="ed-keys">{keys.map((k, i) => <li key={i} className={Math.abs(k.t - local) < 0.04 ? 'on' : ''}>
+              <button onClick={() => onSeek(clip.start + k.t)}>◆ {k.t.toFixed(1)}s · {Math.round(k.scale * 100)}% · {Math.round(k.opacity * 100)}%</button>
+              <button className="x" aria-label="Remove this keyframe" onClick={() => commit({ keys: keys.length > 1 ? keys.filter((_, j) => j !== i) : undefined })}>×</button></li>)}</ul>
+            <button className="ed-btn block" onClick={() => commit({ keys: undefined })}>Remove all keyframes</button>
+          </>}
+        </div>
+        <div className="ed-field"><span>Flip</span><div className="ed-chips">
+          <button className={clip.flipX ? 'on' : ''} onClick={() => commit({ flipX: !clip.flipX })}>Mirror</button>
+          <button className={clip.flipY ? 'on' : ''} onClick={() => commit({ flipY: !clip.flipY })}>Upside down</button></div></div>
         <div className="ed-field"><span>Shape</span><div className="ed-chips">{(['none', 'rounded', 'circle'] as const).map(s => <button key={s} className={(clip.shape ?? 'none') === s ? 'on' : ''} onClick={() => commit({ shape: s })}>{s === 'none' ? 'Full' : s === 'rounded' ? 'Rounded' : 'Circle'}</button>)}
           <button onClick={() => commit({ transform: { ...clip.transform, scale: 0.36, x: 0.74, y: 0.2 }, shape: clip.shape && clip.shape !== 'none' ? clip.shape : 'rounded' })}>Picture-in-picture</button></div></div>
         {asset && asset.kind !== 'audio' && <>
@@ -80,9 +104,11 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
           <Range label="Sound fade in" value={sound.fadeIn} min={0} max={5} step={0.1} unit="s" edit={edit} onChange={v => setSound({ fadeIn: v })} />
           <Range label="Sound fade out" value={sound.fadeOut} min={0} max={5} step={0.1} unit="s" edit={edit} onChange={v => setSound({ fadeOut: v })} />
           <Toggle label="Enhance voice" hint="Clearer, fuller speech: cuts rumble, lifts presence, evens the level" on={sound.enhance} onChange={v => commit({ audio: { ...sound, enhance: v } })} />
+          <Toggle label="Remove audio" hint="Silences this clip. Switch it off to bring the sound back." on={!!clip.muted} onChange={v => commit({ muted: v })} />
           {onVisual && asset.kind === 'video' && onDetach && <button className="ed-btn block" onClick={onDetach}>Detach audio to its own track</button>}
         </>}
         {!asset.hasAudio && asset.kind === 'video' && <p className="ed-note">This video has no sound.</p>}
+        <Toggle label="Reverse" hint="Plays backwards. The preview shows the picture only; the backwards sound is in the exported video." on={!!clip.reverse} onChange={v => commit({ reverse: v })} />
         <div className="ed-field"><span>Speed</span><div className="ed-chips">{[0.25, 0.5, 1, 1.5, 2, 4].map(s => <button key={s} className={clip.speed === s ? 'on' : ''} onClick={() => commit({ speed: s })}>{s}×</button>)}</div></div>
       </>}
     </>}
@@ -94,6 +120,7 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
           <small>{p.name}</small>
         </button>)}
       </div>
+      <LutPicker project={project} clip={clip} thumb={asset?.thumb} edit={edit} commit={commit} live={live} onImport={onLut} />
       <Range label="Brightness" value={pct(grade.brightness)} min={-100} max={100} edit={edit} onChange={v => setGrade({ brightness: v / 100 })} />
       <Range label="Contrast" value={pct(grade.contrast)} min={-100} max={100} edit={edit} onChange={v => setGrade({ contrast: v / 100 })} />
       <Range label="Saturation" value={pct(grade.saturation)} min={-100} max={100} edit={edit} onChange={v => setGrade({ saturation: v / 100 })} />
@@ -110,6 +137,17 @@ export function Inspector({ project, clip, asset, edit, onSplit, onDuplicate, on
     {visual && tab === 'light' && <LightPanel light={clip.light} edit={edit} set={l => live({ light: l })} commit={l => edit.commit({ type: 'updateClip', id: clip.id, patch: { light: l } })} />}
 
     {visual && tab === 'fx' && <>
+      <div className="ed-card"><b className="ed-card-title">Eye effects</b>
+        <div className="ed-chips">
+          <button className={!clip.eyes ? 'on' : ''} onClick={() => commit({ eyes: undefined })}>Off</button>
+          {EYE_FX.map(e => <button key={e.id} className={clip.eyes?.kind === e.id ? 'on' : ''} onClick={() => commit({ eyes: { kind: e.id as EyeKind, color: e.id === clip.eyes?.kind ? clip.eyes.color : e.color, size: clip.eyes?.size ?? 1 } })}>{e.name}</button>)}
+        </div>
+        {clip.eyes && <>
+          {clip.eyes.kind !== 'shades' && <div className="ed-field"><span>Colour</span><div className="ed-colors">{EYE_COLORS.map(c => <button key={c} aria-label={`Colour ${c}`} className={`ed-dot ${clip.eyes!.color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => commit({ eyes: { ...clip.eyes!, color: c } })} />)}</div></div>}
+          <Range label="Size" value={pct(clip.eyes.size)} min={50} max={200} unit="%" edit={edit} onChange={v => live({ eyes: { ...clip.eyes!, size: v / 100 } })} />
+          <small className="ed-note">Finds the face in the clip and follows the eyes. Works best when the face looks toward the camera.</small>
+        </>}
+      </div>
       <Range label="Fade in" value={fx.fadeIn} min={0} max={3} step={0.1} unit="s" edit={edit} onChange={v => setFx({ fadeIn: v })} />
       <Range label="Fade out" value={fx.fadeOut} min={0} max={3} step={0.1} unit="s" edit={edit} onChange={v => setFx({ fadeOut: v })} />
       <Range label="Slow zoom" value={pct(fx.zoom)} min={0} max={100} edit={edit} onChange={v => setFx({ zoom: v / 100 })} />
@@ -197,4 +235,38 @@ function TextPanel({ text, edit, setText, commitText }: { text: TextSpec; edit: 
     <div className="ed-field"><span>Animate in</span><div className="ed-chips">{ANIMS.map(a => <button key={a.id} className={text.animIn === a.id ? 'on' : ''} onClick={() => commitText({ animIn: a.id })}>{a.label}</button>)}</div></div>
     <div className="ed-field"><span>Animate out</span><div className="ed-chips">{ANIMS.filter(a => a.id !== 'bounce' && a.id !== 'typewriter').map(a => <button key={a.id} className={text.animOut === a.id ? 'on' : ''} onClick={() => commitText({ animOut: a.id as TextSpec['animOut'] })}>{a.label}</button>)}</div></div>
   </>
+}
+
+/** Filters made from colour lookup tables: ten built in, plus any .cube file */
+function LutPicker({ project, clip, thumb, edit, commit, live, onImport }: { project: Project; clip: Clip; thumb?: string; edit: Edit; commit: (p: Partial<Clip>) => void; live: (p: Partial<Clip>) => void; onImport: (f: File) => void }) {
+  const file = useRef<HTMLInputElement>(null)
+  const all = [...BUILTIN_LUTS.map(l => ({ id: l.id, name: l.name })), ...(project.luts ?? []).map(l => ({ id: l.id, name: l.name }))]
+  return <div className="ed-card"><b className="ed-card-title">Colour filters (LUTs)</b>
+    <div className="ed-presets">
+      <button className={!clip.lut ? 'on' : ''} onClick={() => commit({ lut: undefined })}><LutThumb src={thumb} /><small>None</small></button>
+      {all.map(l => <button key={l.id} className={clip.lut?.id === l.id ? 'on' : ''} onClick={() => commit({ lut: { id: l.id, strength: clip.lut?.strength ?? 1 } })}><LutThumb src={thumb} id={l.id} /><small>{l.name}</small></button>)}
+    </div>
+    {clip.lut && <Range label="Strength" value={Math.round(clip.lut.strength * 100)} min={0} max={100} unit="%" edit={edit} onChange={v => live({ lut: { ...clip.lut!, strength: v / 100 } })} />}
+    <input ref={file} type="file" accept=".cube" hidden onChange={e => { const f = e.target.files?.[0]; if (f) onImport(f); e.target.value = '' }} />
+    <button className="ed-btn block" onClick={() => file.current?.click()}><Upload size={14} /> Import a .cube LUT</button>
+  </div>
+}
+
+function LutThumb({ src, id }: { src?: string; id?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const c = ref.current
+    if (!c) return
+    const g = c.getContext('2d', { willReadFrequently: true })!
+    const paint = (img?: HTMLImageElement) => {
+      g.fillStyle = '#3a3a4a'; g.fillRect(0, 0, c.width, c.height)
+      if (img) { const s = Math.max(c.width / img.width, c.height / img.height); g.drawImage(img, (c.width - img.width * s) / 2, (c.height - img.height * s) / 2, img.width * s, img.height * s) }
+      else { const grad = g.createLinearGradient(0, 0, c.width, c.height); grad.addColorStop(0, '#e8a06a'); grad.addColorStop(0.5, '#7a8f6a'); grad.addColorStop(1, '#4a6c9a'); g.fillStyle = grad; g.fillRect(0, 0, c.width, c.height) }
+      const lut = id ? lutData(id) : null
+      if (lut) applyLut(g, c.width, c.height, lut, 1)
+    }
+    if (!src) return paint()
+    const img = new Image(); img.onload = () => paint(img); img.onerror = () => paint(); img.src = src
+  }, [src, id])
+  return <canvas ref={ref} width={64} height={64} className="ed-lut" />
 }

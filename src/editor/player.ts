@@ -4,6 +4,8 @@ import { drawClip, drawTextClip, layersAt } from './render'
 import { clipChain, clipGainAt, envelopeAt, isMusicTrack, NO_AUDIO } from './audio'
 import { loadSegmenter, segmenterReady } from './segment'
 import { loadRelight, relightReady } from './relight'
+import { eyesReady, loadEyes } from './eyes'
+import { setCustomLuts } from './lut'
 import { frameAt, loadAnimation } from './anim'
 import { fileOf } from './media'
 
@@ -35,6 +37,8 @@ export class Player {
   setProject(p: Project) {
     if (p.clips.some(c => c.cutout) && !segmenterReady()) loadSegmenter().then(() => !this.playing && this.draw()).catch(() => {})
     if (p.clips.some(c => c.light) && !relightReady()) loadRelight().then(() => !this.playing && this.draw()).catch(() => {})
+    if (p.clips.some(c => c.eyes) && !eyesReady()) loadEyes().then(() => !this.playing && this.draw()).catch(() => {})
+    setCustomLuts(p.luts)
     this.project = p; this.prune(); if (!this.playing) this.seek(Math.min(this.time, projectDuration(p))) }
 
   seek(t: number) {
@@ -123,13 +127,20 @@ export class Player {
       const on = activeAt(clip, t) && !track?.hidden
       const want = sourceTime(clip, t)
       const route = asset.hasAudio ? this.route(clip, el) : null
-      const level = track?.muted ? 0 : clipGainAt(clip, t)
+      const level = track?.muted || clip.reverse ? 0 : clipGainAt(clip, t) // a reversed clip is silent in the preview; its backwards sound is in the export
       if (route) {
         el.muted = false; el.volume = 1
         route.gain.gain.value = level
         route.duck.gain.value = isMusicTrack(this.project, clip.trackId) ? envelopeAt(this.duckEnv, t) : 1
       } else { el.volume = Math.min(1, level); el.muted = level === 0 || !asset.hasAudio }
       el.playbackRate = clip.speed
+      if (clip.reverse) {
+        // a media element can't play backwards, so a reversed clip is stepped to the right frame instead of played
+        if (!el.paused) el.pause()
+        const target = on ? want : t < clip.start && clip.start - t < 2 ? sourceTime(clip, clip.start) : null
+        if (target !== null && Math.abs(el.currentTime - target) > (playing ? 0.04 : 0.01)) el.currentTime = target
+        continue
+      }
       if (on && playing) {
         if (el.paused) { el.currentTime = want; el.play().catch(() => {}) }
         else if (Math.abs(el.currentTime - want) > 0.3) el.currentTime = want

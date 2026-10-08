@@ -8,6 +8,8 @@ import { fileOf } from './media'
 import { drawClip, drawTextClip, layersAt } from './render'
 import { ensureFont } from './text'
 import { loadSegmenter } from './segment'
+import { loadEyes } from './eyes'
+import { setCustomLuts } from './lut'
 import { loadRelight } from './relight'
 import { frameAt, loadAnimation } from './anim'
 
@@ -58,11 +60,14 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
       if (!track) continue
       const first = await track.getFirstTimestamp()
       const wanted = times.filter(t => activeAt(clip, t)).map(t => first + sourceTime(clip, t))
-      streams.set(clip.id, new CanvasSink(track, { poolSize: 2 }).canvasesAtTimestamps(wanted))
+      const sink = new CanvasSink(track, { poolSize: 2 })
+      streams.set(clip.id, clip.reverse ? backwards(sink, wanted) : sink.canvasesAtTimestamps(wanted))
     }
     for (const c of p.clips) if (c.text) await ensureFont(c.text)
     if (p.clips.some(c => c.cutout)) await loadSegmenter()
     if (p.clips.some(c => c.light)) await loadRelight()
+    if (p.clips.some(c => c.eyes)) await loadEyes()
+    setCustomLuts(p.luts)
     const images = new Map<string, ImageBitmap>()
     for (const a of p.assets) if (a.kind === 'image' && p.clips.some(c => c.assetId === a.id)) { if (a.animated) await loadAnimation(a.id, fileOf(a.id)!); else images.set(a.id, await createImageBitmap(fileOf(a.id)!)) }
 
@@ -98,21 +103,37 @@ export async function exportVideo(p: Project, opts: ExportOptions, onProgress: (
   }
 }
 
+/** Frames for a reversed clip: asked one by one, since they run against the file's direction. A missing frame repeats the last one. */
+async function* backwards(sink: CanvasSink, times: number[]) {
+  let prev: { canvas: HTMLCanvasElement | OffscreenCanvas } | null = null
+  for (const t of times) { const f = await sink.getCanvas(t); if (f) prev = f; yield prev }
+}
+
+/** The same sound played from the end to the start */
+function reversed(ctx: BaseAudioContext, b: AudioBuffer) {
+  const r = ctx.createBuffer(b.numberOfChannels, b.length, b.sampleRate)
+  for (let c = 0; c < b.numberOfChannels; c++) r.getChannelData(c).set(b.getChannelData(c).slice().reverse())
+  return r
+}
+
 /** Mixes every audible clip into one stereo track, with volume, fades, voice enhancement and music ducking */
 export async function mixAudio(p: Project, duration: number, opts: { skipDuck?: boolean } = {}): Promise<AudioBuffer> {
   const env = !opts.skipDuck && p.ducking?.on ? await duckingEnvelope(p, duration) : null
   const ctx = new OfflineAudioContext(2, Math.max(1, Math.ceil(duration * SAMPLE_RATE)), SAMPLE_RATE)
   const decoded = new Map<string, AudioBuffer | null>()
+  const flipped = new Map<string, AudioBuffer>()
   for (const clip of p.clips) {
     const asset = p.assets.find(a => a.id === clip.assetId)
     const track = p.tracks.find(t => t.id === clip.trackId)
-    if (!asset || asset.kind === 'image' || !asset.hasAudio || track?.muted || track?.hidden || clip.volume <= 0) continue
+    if (!asset || asset.kind === 'image' || !asset.hasAudio || track?.muted || track?.hidden || clip.volume <= 0 || clip.muted) continue
     if (!decoded.has(asset.id)) {
       try { decoded.set(asset.id, await ctx.decodeAudioData(await fileOf(asset.id)!.arrayBuffer())) }
       catch { decoded.set(asset.id, null) } // a video with no audio track
     }
-    const buffer = decoded.get(asset.id)
-    if (!buffer) continue
+    const original = decoded.get(asset.id)
+    if (!original) continue
+    let buffer = original
+    if (clip.reverse) { if (!flipped.has(asset.id)) flipped.set(asset.id, reversed(ctx, original)); buffer = flipped.get(asset.id)! }
     const src = ctx.createBufferSource()
     src.buffer = buffer
     src.playbackRate.value = clip.speed
@@ -126,7 +147,7 @@ export async function mixAudio(p: Project, duration: number, opts: { skipDuck?: 
       node = node.connect(duck)
     }
     node.connect(ctx.destination)
-    src.start(clip.start, clip.in, clipLength(clip) * clip.speed)
+    src.start(clip.start, clip.reverse ? buffer.duration - clip.out : clip.in, clipLength(clip) * clip.speed)
     src.stop(clipEnd(clip))
   }
   return ctx.startRendering()
