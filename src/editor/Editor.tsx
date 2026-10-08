@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Cloud, Download, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Trash2, Type, Undo2, Upload, X } from 'lucide-react'
+import { ArrowLeft, Cloud, Download, FolderOpen, Mic, Film, Image as ImageIcon, Music, Pause, Play, Plus, Redo2, Scissors, SkipBack, Smile, Trash2, Type, Undo2, Upload, Volume2, X } from 'lucide-react'
 import { type Asset, ASPECTS, type Aspect, clipFor, clipLength, freeSpot, newProject, projectDuration, textClip, trackKindFor, uid } from './model'
-import { BASE_TEXT, ensureFont } from './text'
+import { BASE_TEXT, ensureFont, TEXT_TEMPLATES } from './text'
 import { layersAt } from './render'
 import { poseAt, withPose } from './keyframes'
 import { parseCube } from './lut'
@@ -9,12 +9,15 @@ import { isNative, saveFile } from '../native'
 import { SoundsPanel } from './SoundsPanel'
 import { CutoutEditor } from './CutoutEditor'
 import { StickersPanel } from './StickersPanel'
+import { MemesPanel } from './MemesPanel'
+import { VoiceoverBar } from './VoiceoverBar'
 import { AccountButton } from '../cloud/Account'
 import { CloudDialog } from '../cloud/CloudDialog'
 import { cloudEnabled, track } from '../cloud/supabase'
 import { DEFAULT_DUCKING } from './audio'
 import { useHistory } from './history'
-import { clearSaved, importFile, loadProject, saveProject } from './media'
+import { currentId, deleteProject, forgetUnusedFiles, importFile, isEmpty, listProjects, loadProject, renameProject, saveProject, setCurrentId } from './media'
+import { ProjectsDialog } from './ProjectsDialog'
 import { Player } from './player'
 import { Timeline } from './Timeline'
 import { Inspector } from './Inspector'
@@ -40,20 +43,34 @@ export default function Editor() {
   const [cloudId, setCloudId] = useState<string | null>(() => { try { return localStorage.getItem('lightup-cloud-id') } catch { return null } })
   useEffect(() => { try { cloudId ? localStorage.setItem('lightup-cloud-id', cloudId) : localStorage.removeItem('lightup-cloud-id') } catch { /* private mode */ } }, [cloudId])
   const [loaded, setLoaded] = useState(false)
-  const [library, setLibrary] = useState<'media' | 'sounds' | 'stickers'>('media')
+  const [projectId, setProjectId] = useState('')
+  const [projectsOpen, setProjectsOpen] = useState(false)
+  const [voiceover, setVoiceover] = useState(false)
+  const voiceStart = useRef(0) // where on the timeline the recording began
+  const [library, setLibrary] = useState<'media' | 'sounds' | 'stickers' | 'memes'>('media')
   const [panel, setPanel] = useState<'media' | 'edit' | null>(null) // phones show at most one side panel, so the preview gets the room
   const fileInput = useRef<HTMLInputElement>(null)
   const clip = project.clips.find(c => c.id === selected) ?? null
   const asset = clip ? project.assets.find(a => a.id === clip.assetId) : undefined
   const duration = projectDuration(project)
 
-  // open the last project, then keep saving it
-  useEffect(() => { loadProject().then(p => { if (p) h.reset(p); setLoaded(true) }) }, [])
+  // open the project you were on (or the newest), then keep saving it
   useEffect(() => {
-    if (!loaded) return
-    const t = setTimeout(() => saveProject(project).catch(() => setToast('Couldn’t save this project on this device.')), 600)
+    (async () => {
+      const list = await listProjects().catch(() => [])
+      const id = (list.find(m => m.id === currentId()) ?? list[0])?.id
+      const p = id ? await loadProject(id) : undefined
+      const use = p && id ? id : uid()
+      if (p) h.reset(p)
+      setProjectId(use); setCurrentId(use); setLoaded(true)
+      forgetUnusedFiles().catch(() => {})
+    })()
+  }, [])
+  useEffect(() => {
+    if (!loaded || !projectId || isEmpty(project)) return
+    const t = setTimeout(() => saveProject(projectId, project).catch(() => setToast('Couldn’t save this project on this device.')), 600)
     return () => clearTimeout(t)
-  }, [project, loaded])
+  }, [project, loaded, projectId])
 
   useEffect(() => {
     const p = new Player(canvas.current!, project)
@@ -111,6 +128,19 @@ export default function Editor() {
     setSelected(c.id); setPanel('edit')
     ensureFont(BASE_TEXT).then(() => player.current?.seek(player.current.time))
   }
+  /** meme captions: Impact-style white text with a black outline; a second line goes on the overlay track so it can share the moment */
+  const addMemeText = (lines: { text: string; y: number }[]) => {
+    const tpl = TEXT_TEMPLATES.find(t => t.id === 'meme') ?? TEXT_TEMPLATES[0]
+    const tracks = [project.tracks.find(t => t.id === 't1'), project.tracks.find(t => t.id === 'v2')].filter(Boolean) as typeof project.tracks
+    let last = ''
+    lines.forEach((l, i) => {
+      const c = textClip({ ...BASE_TEXT, ...tpl.spec, content: l.text }, (tracks[i] ?? tracks[0]).id, time)
+      c.transform = { ...c.transform, y: l.y }
+      h.commit({ type: 'addClip', clip: c, fit: 'near' }); last = c.id
+      ensureFont({ ...BASE_TEXT, ...tpl.spec }).then(() => player.current?.seek(player.current.time))
+    })
+    setSelected(last); setPanel('edit')
+  }
   // drag on the preview to move the selected layer (or the top one); a plain click plays and pauses
   const dragOnPreview = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const box = e.currentTarget.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY
@@ -134,12 +164,12 @@ export default function Editor() {
     h.commit({ type: 'detachAudio', id: clip.id, trackId: target.id })
     setToast('Audio detached. The video clip is now silent.')
   }
-  const addSound = async (file: File) => {
+  const addSound = async (file: File, at = time) => {
     try {
       const asset = await importFile(file)
       h.commit({ type: 'addAsset', asset })
       const track = project.tracks.find(t => t.id === 'a2') ?? project.tracks.filter(t => t.kind === 'audio').slice(-1)[0]
-      const c = clipFor(asset, track.id, time)
+      const c = clipFor(asset, track.id, at)
       h.commit({ type: 'addClip', clip: c, fit: 'near' })
       setSelected(c.id)
     } catch { setToast('Couldn’t add that sound.') }
@@ -187,10 +217,20 @@ export default function Editor() {
     addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey)
   })
 
-  const newOne = async () => {
-    if (project.clips.length && !confirm('Start a new project? The current one will be cleared from this device.')) return
-    player.current?.pause(); await clearSaved(); h.reset(newProject()); setSelected(null); setCloudId(null); seek(0)
+  /** saves what's on screen, then switches to another project (or a blank one) */
+  const switchTo = async (id: string | null) => {
+    player.current?.pause()
+    if (projectId && !isEmpty(project)) await saveProject(projectId, project).catch(() => {})
+    const p = id ? await loadProject(id) : undefined
+    const use = p && id ? id : uid()
+    h.reset(p ?? newProject()); setProjectId(use); setCurrentId(use); setSelected(null); setCloudId(null); setProjectsOpen(false); seek(0)
   }
+  const openProjects = async () => {
+    if (projectId && !isEmpty(project)) await saveProject(projectId, project).catch(() => {})
+    setProjectsOpen(true)
+  }
+  const renameAny = async (id: string, name: string) => { if (id === projectId) h.commit({ type: 'rename', name }); else await renameProject(id, name) }
+  const deleteAny = async (id: string) => { await deleteProject(id); if (id === projectId) await switchTo(null) }
 
   return <div className={`editor ${panel ? 'sheet-open' : ''}`} onDragOver={e => e.dataTransfer.types.includes('Files') && e.preventDefault()} onDrop={e => { if (e.dataTransfer.files.length) { e.preventDefault(); addFiles(e.dataTransfer.files) } }}>
     <header className="ed-top">
@@ -202,7 +242,7 @@ export default function Editor() {
       <span className="ed-spacer" />
       <button className="ed-btn ghost" onClick={h.undo} disabled={!h.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)"><Undo2 size={16} /></button>
       <button className="ed-btn ghost" onClick={h.redo} disabled={!h.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)"><Redo2 size={16} /></button>
-      <button className="ed-btn ghost wide-only" onClick={newOne}>New</button>
+      <button className="ed-btn ghost" onClick={openProjects} aria-label="Your projects" title="Your projects"><FolderOpen size={16} /><span className="wide-only">Projects</span></button>
       {cloudEnabled && <button className="ed-btn ghost" onClick={() => setCloudOpen(true)} aria-label="Your projects" title="Save to or open from your account"><Cloud size={16} /></button>}
       <AccountButton />
       <button className="ed-btn primary" onClick={() => setExporting(true)} disabled={!duration}><Download size={15} /> Export</button>
@@ -214,8 +254,9 @@ export default function Editor() {
           <button role="tab" aria-selected={library === 'media'} className={library === 'media' ? 'on' : ''} onClick={() => setLibrary('media')}>Media</button>
           <button role="tab" aria-selected={library === 'sounds'} className={library === 'sounds' ? 'on' : ''} onClick={() => setLibrary('sounds')}>Sounds</button>
           <button role="tab" aria-selected={library === 'stickers'} className={library === 'stickers' ? 'on' : ''} onClick={() => setLibrary('stickers')}>Stickers</button>
+          <button role="tab" aria-selected={library === 'memes'} className={library === 'memes' ? 'on' : ''} onClick={() => setLibrary('memes')}>Memes</button>
         </div>
-        {library === 'stickers' ? <StickersPanel onAdd={addSticker} onError={setToast} /> : library === 'sounds' ? <SoundsPanel ducking={project.ducking ?? DEFAULT_DUCKING} onDucking={d => h.commit({ type: 'setDucking', ducking: d })} onAdd={addSound} /> : <>
+        {library === 'memes' ? <MemesPanel onSticker={addSticker} onText={addMemeText} onEyes={() => { if (!clip || clip.text) setToast('Select a video or photo of a face first, then open Adjust → Effects.'); else setPanel('edit') }} /> : library === 'stickers' ? <StickersPanel onAdd={addSticker} onError={setToast} /> : library === 'sounds' ? <SoundsPanel ducking={project.ducking ?? DEFAULT_DUCKING} onDucking={d => h.commit({ type: 'setDucking', ducking: d })} onAdd={addSound} /> : <>
         <div className="ed-side-head"><b>Media</b><button className="ed-btn small" onClick={() => fileInput.current?.click()}><Upload size={14} /> Import</button></div>
         <input ref={fileInput} type="file" multiple accept="video/*,image/*,audio/*" hidden onChange={e => { addFiles(e.target.files ?? []); e.target.value = '' }} />
         {project.assets.length === 0
@@ -262,6 +303,9 @@ export default function Editor() {
       <button className="ed-btn small" onClick={split} title="Split at playhead (S)"><Scissors size={14} /> Split</button>
       <button className="ed-btn small" onClick={remove} disabled={!selected} title="Delete (Del)"><Trash2 size={14} /> Delete</button>
       <button className="ed-btn small" onClick={addText} title="Add text (T)"><Type size={14} /> Text</button>
+      <button className="ed-btn small" onClick={() => { player.current?.pause(); setVoiceover(true) }}><Mic size={14} /> Voiceover</button>
+      <button className="ed-btn small" onClick={() => { setLibrary('sounds'); setPanel('media') }}><Volume2 size={14} /> Sounds</button>
+      <button className="ed-btn small" onClick={() => { setLibrary('memes'); setPanel('media') }}><Smile size={14} /> Memes</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'visual' })}><Plus size={14} /> Overlay track</button>
       <button className="ed-btn small wide-only" onClick={() => h.commit({ type: 'addTrack', kind: 'audio' })}><Plus size={14} /> Audio track</button>
       <span className="ed-spacer" />
@@ -277,7 +321,9 @@ export default function Editor() {
       try { const cut = await importFile(file); h.commit({ type: 'addAsset', asset: cut }); h.commit({ type: 'updateClip', id: clip.id, patch: { assetId: cut.id, cutout: undefined } }); setToast('Cut-out applied. The original photo is still in your media.') }
       catch { setToast('Couldn’t save the cut-out.') }
     }} />}
-    {cloudOpen && <CloudDialog project={project} duration={duration} cloudId={cloudId} onClose={() => setCloudOpen(false)} onSaved={id => { setCloudId(id); setToast('Saved to your account.') }} onOpen={(p, id) => { player.current?.pause(); h.reset(p); setCloudId(id); setSelected(null); seek(0) }} />}
+    {cloudOpen && <CloudDialog project={project} duration={duration} cloudId={cloudId} onClose={() => setCloudOpen(false)} onSaved={id => { setCloudId(id); setToast('Saved to your account.') }} onOpen={(p, id) => { player.current?.pause(); const local = uid(); h.reset(p); setProjectId(local); setCurrentId(local); setCloudId(id); setSelected(null); seek(0) }} />}
+    {voiceover && <VoiceoverBar onBegin={() => { voiceStart.current = player.current?.time ?? 0 }} onPlay={() => player.current?.play()} onPause={() => player.current?.pause()} onDone={f => addSound(f, voiceStart.current).then(() => setToast('Voiceover added to the Voice & SFX track.'))} onClose={() => setVoiceover(false)} />}
+    {projectsOpen && <ProjectsDialog currentId={projectId} currentName={project.name} onOpen={switchTo} onNew={() => switchTo(null)} onRename={renameAny} onDelete={deleteAny} onClose={() => setProjectsOpen(false)} />}
     {exporting && <ExportDialog onClose={() => setExporting(false)} project={project} />}
     {toast && <div className="ed-toast" role="status">{toast}</div>}
   </div>

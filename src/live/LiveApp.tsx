@@ -7,6 +7,7 @@ import { AutoLight, NEUTRAL } from './autoLight'
 import { track } from '../cloud/supabase'
 import { DEFAULT_LOOK, drawCatchlights, glide, rigFor, WARMTH_MAX, WARMTH_MIN, type Look, type Rig, type Spot, type Style } from './rig'
 import { HUE_NAMES, Swatches } from './Swatches'
+import { Teleprompter, useScript } from '../Teleprompter'
 import './live.css'
 
 const STYLES: { id: Style; name: string; hint: string }[] = [
@@ -87,6 +88,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([])
   const [handHint, setHandHint] = useState(false)
   const [counter, setCounter] = useState(0)
+  const { script, setScript, tele, setTele } = useScript()
   const count = useRef(0)
   const onGesture = useRef<(g: Gesture | null, hand: Hand, now: number) => void>(() => {})
   // where the bulb is when no hand is holding it; a click or drag moves it
@@ -271,6 +273,7 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     {status === 'plain' && <div className="pill top">This computer can’t run the lighting engine, so you’re seeing your camera as is.</div>}
     {toast && <div className="pill top" role="status">{toast}</div>}
     {counter > 0 && <div className="countdown" aria-live="assertive">{counter}</div>}
+    {tele.on && <Teleprompter className="live-tele" script={script} running={!!rec} speed={tele.speed} size={tele.size} />}
     {handHint && !toast && status === 'ready' && <div className="pill bottom">Hold up your hand to carry the bulb, or click anywhere to place it</div>}
     {(rec || live) && <div className="badges">{rec && <span className="badge rec"><i /> REC {time}</span>}{live && <span className="badge on"><i /> Light Up Camera</span>}</div>}
 
@@ -315,6 +318,18 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
         <label className="switch"><span>Eye catchlights<small>The light’s reflection in your eyes</small></span>
           <input type="checkbox" checked={look.catchlight} onChange={e => set({ catchlight: e.target.checked })} /><i /></label>
       </fieldset>
+
+      <div className="tele-box">
+        <label className="switch first"><span>Teleprompter<small>Your script scrolls on its own when you press Record. It isn’t in the video.</small></span>
+          <input type="checkbox" checked={tele.on} onChange={e => setTele({ on: e.target.checked })} /><i /></label>
+        {tele.on && <>
+          <textarea className="tele-script" value={script} placeholder="Type or paste your script here…" rows={4} onChange={e => setScript(e.target.value)} />
+          <label className="slider"><span>Scroll speed <b>{tele.speed}</b></span>
+            <input type="range" min="1" max="10" value={tele.speed} onChange={e => setTele({ speed: +e.target.value })} style={{ '--p': `${(tele.speed - 1) * 11.1}%` } as React.CSSProperties} /></label>
+          <label className="slider"><span>Text size <b>{tele.size}</b></span>
+            <input type="range" min="18" max="56" value={tele.size} onChange={e => setTele({ size: +e.target.value })} style={{ '--p': `${((tele.size - 18) / 38) * 100}%` } as React.CSSProperties} /></label>
+        </>}
+      </div>
 
       <div className="actions">
         {bridge() && <button className={`action wide ${live ? 'on' : ''}`} onClick={toggleLive}><Video size={15} /> {live ? 'Live as Light Up Camera' : 'Use in Zoom, Teams & OBS'}</button>}

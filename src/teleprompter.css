@@ -1,0 +1,6 @@
+.tp { position: absolute; left: 0; right: 0; height: min(36vh, 260px); overflow: hidden; z-index: 4; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; background: linear-gradient(180deg, rgba(0, 0, 0, .74), rgba(0, 0, 0, .5) 80%, rgba(0, 0, 0, 0)); -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent); mask-image: linear-gradient(180deg, #000 78%, transparent) }
+.tp-text { padding: min(22vh, 156px) 7% min(36vh, 260px); font-weight: 700; line-height: 1.4; text-align: center; color: #fff; white-space: pre-wrap; overflow-wrap: anywhere; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); will-change: transform }
+.tp:not(.running) .tp-text { opacity: .8 }
+.tp-line { position: absolute; left: 0; top: min(22vh, 156px); width: 4px; height: 1.4em; margin-top: -.1em; background: linear-gradient(var(--warm, #ffc187), var(--rose, #ff8fa3)); border-radius: 0 3px 3px 0; opacity: .0 }
+.tp.running .tp-line { opacity: .9 }
+.tp-paused { position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%); padding: 6px 12px; border-radius: 999px; background: rgba(0, 0, 0, .7); font: 700 12px/1 var(--sans); color: #fff }

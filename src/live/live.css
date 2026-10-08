@@ -159,3 +159,10 @@ button:focus-visible, select:focus-visible { outline: 2px solid rgba(255, 193, 1
 
 .live-stage { touch-action: none }
 .countdown { position: absolute; inset: 0; display: grid; place-items: center; z-index: 6; pointer-events: none; font: 400 min(38vw, 220px)/1 var(--serif); color: #fff; text-shadow: 0 8px 40px rgba(0, 0, 0, .5); animation: rise .35s var(--ease) }
+
+/* ---------- teleprompter ---------- */
+.live-tele { top: 0; padding-top: env(safe-area-inset-top); height: min(38vh, 280px) }
+.tele-box { margin-top: 14px; border-top: 1px solid var(--line) }
+.switch.first { border-top: 0 }
+.tele-script { width: 100%; margin: 8px 0 12px; padding: 10px 12px; border-radius: 12px; resize: vertical; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); color: var(--ink); font: 500 13px/1.45 var(--sans) }
+.tele-script:focus { outline: none; border-color: rgba(255, 193, 135, .55) }
