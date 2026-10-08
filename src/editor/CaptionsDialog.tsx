@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Captions } from 'lucide-react'
-import { CAPTION_TRACK, type CaptionOptions, captionClips, LANGUAGES, MODELS, type Progress, restyle, transcribe } from './captions'
+import { cancelTranscribe, canRunHeavy, CAPTION_TRACK, type CaptionOptions, captionClips, LANGUAGES, MODELS, type Progress, restyle, transcribe } from './captions'
 import { type Clip, projectDuration, type Project, type Track } from './model'
 import { BASE_TEXT, TEXT_TEMPLATES } from './text'
 import { track } from '../cloud/supabase'
@@ -18,6 +18,8 @@ export function CaptionsDialog({ project, onClose, onApply }: { project: Project
   const [o, setO] = useState<CaptionOptions>(load)
   const [progress, setProgress] = useState<Progress | null>(null)
   const [error, setError] = useState('')
+  const heavyOk = canRunHeavy()
+  const blocked = !heavyOk && (o.spoken === 'hi' || o.spoken === 'te' || o.language !== (o.spoken === 'auto' ? 'en' : o.spoken))
   const has = project.clips.some(c => c.trackId === CAPTION_TRACK.id)
   const set = (p: Partial<CaptionOptions>) => setO(x => { const n = { ...x, ...p }; try { localStorage.setItem('lightup-captions', JSON.stringify(n)) } catch { /* private mode */ } return n })
 
@@ -33,6 +35,7 @@ export function CaptionsDialog({ project, onClose, onApply }: { project: Project
     } catch (e) { setError(e instanceof Error ? e.message : 'Captions failed.') }
     finally { setProgress(null) }
   }
+  const cancel = () => { cancelTranscribe(); setProgress(null); onClose() }
 
   return <div className="ed-modal-back" onMouseDown={() => !progress && onClose()}>
     <div className="ed-modal" onMouseDown={e => e.stopPropagation()} role="dialog" aria-label="Auto captions">
@@ -45,6 +48,7 @@ export function CaptionsDialog({ project, onClose, onApply }: { project: Project
           : 'Listening to your video… this takes about as long as the video, or less.'}</p>
         <div className="ed-bar">{progress.stage.startsWith('download') ? <i style={{ width: `${Math.round((progress.share ?? 0) * 100)}%` }} /> : <i className="indeterminate" />}</div>
         <p className="ed-pct">Runs on this device. Your audio isn’t uploaded.</p>
+        <button className="ed-btn block" onClick={cancel}>Cancel</button>
       </> : <>
         <p>Turns speech into on-screen captions you can edit, right on this device.</p>
         <div className="ed-field"><span>Language spoken in the video</span><div className="ed-chips big">{[{ id: 'auto' as const, label: 'Detect' }, ...LANGUAGES].map(l => <button key={l.id} className={o.spoken === l.id ? 'on' : ''} onClick={() => set({ spoken: l.id })}>{l.label}</button>)}</div></div>
@@ -56,8 +60,9 @@ export function CaptionsDialog({ project, onClose, onApply }: { project: Project
 </div>}
         {o.spoken !== 'en' && <small className="ed-note">Hindi and Telugu speech always uses the most accurate model (about 600 MB, downloads once): the smaller ones get these languages wrong.</small>}
         <label className="ed-toggle"><span>Ignore the Music track<small>Background music makes speech harder to hear</small></span><input type="checkbox" checked={o.skipMusic} onChange={e => set({ skipMusic: e.target.checked })} /><i /></label>
+        {blocked && <p className="ed-error">Telugu, Hindi and translated captions need a laptop or desktop with plenty of memory. On this device they can freeze it, so they’re turned off. English captions work here.</p>}
         {error && <p className="ed-error">{error}</p>}
-        <button className="ed-btn primary block" onClick={run}><Captions size={15} /> {has ? 'Regenerate captions' : 'Generate captions'}</button>
+        <button className="ed-btn primary block" disabled={blocked} onClick={run}><Captions size={15} /> {has ? 'Regenerate captions' : 'Generate captions'}</button>
         {has && <button className="ed-btn block" onClick={() => { onApply(CAPTION_TRACK, restyle(project, o.style)); onClose() }}>Just restyle my captions</button>}
         <button className="ed-btn block" onClick={onClose}>Cancel</button>
       </>}

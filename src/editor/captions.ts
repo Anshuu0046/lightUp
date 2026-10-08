@@ -23,6 +23,19 @@ export type Progress = { stage: 'audio' | 'download' | 'download-translator' | '
 
 let worker: Worker | null = null
 
+/**
+ * Hindi and Telugu captions load a ~600 MB speech model, and translating adds a ~900 MB one.
+ * Phones and low-memory devices run out of memory and freeze, so those paths are kept to devices that can take them.
+ */
+export function canRunHeavy() {
+  const n = navigator as Navigator & { deviceMemory?: number }
+  const phone = /Android|iPhone|iPad|iPod|Mobi/i.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1)
+  return !phone && (n.deviceMemory ?? 8) >= 8
+}
+
+/** Stops captioning and gives all of its memory back */
+export function cancelTranscribe() { worker?.terminate(); worker = null }
+
 const audible = (a: Float32Array) => a.some(v => Math.abs(v) > 0.003)
 async function speechAudio(p: Project, duration: number) {
   const mixed = await mixAudio(p, duration, { skipDuck: true })
@@ -51,10 +64,10 @@ export async function transcribe(p: Project, o: CaptionOptions, onProgress: (p: 
       else if (m.type === 'detected') heard = m.language
       else if (m.type === 'listening' || m.type === 'translating') onProgress({ stage: m.type, heard })
       else if (m.type === 'done') resolve(m.chunks!)
-      else if (m.type === 'error') reject(new Error(m.message?.includes('fetch') ? 'Couldn’t download the speech model. Check your internet connection and try again.' : m.message))
+      else if (m.type === 'error') { cancelTranscribe(); reject(new Error(m.message?.includes('fetch') ? 'Couldn’t download the speech model. Check your internet connection and try again.' : m.message)) }
     }
-    w.onerror = () => reject(new Error('Captions stopped unexpectedly. Try the Fast model.'))
-    w.postMessage({ audio, spoken: o.spoken, target: o.language, model: MODELS[o.quality].id }, [audio.buffer])
+    w.onerror = () => { cancelTranscribe(); reject(new Error('Captions stopped unexpectedly. Try the Fast model.')) }
+    w.postMessage({ audio, spoken: o.spoken, target: o.language, model: MODELS[o.quality].id, heavyOk: canRunHeavy() }, [audio.buffer])
   })
 }
 

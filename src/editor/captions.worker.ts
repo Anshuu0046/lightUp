@@ -10,7 +10,7 @@ const ort = env.backends.onnx as { wasm?: { wasmPaths?: unknown } }
 if (ort.wasm) ort.wasm.wasmPaths = { mjs: '/ort/ort-wasm-simd-threaded.asyncify.mjs', wasm: '/ort/ort-wasm-simd-threaded.asyncify.wasm' }
 
 type Lang = 'en' | 'hi' | 'te'
-type Request = { audio: Float32Array; spoken: Lang | 'auto'; target: Lang; model: string }
+type Request = { audio: Float32Array; spoken: Lang | 'auto'; target: Lang; model: string; heavyOk: boolean }
 type Chunk = { text: string; timestamp: [number, number | null] }
 type Asr = ((audio: Float32Array, opts: Record<string, unknown>) => Promise<{ text: string; chunks?: Chunk[] }>) & {
   processor: (audio: Float32Array) => Promise<{ input_features: Tensor }>
@@ -31,6 +31,13 @@ const INDIAN = 'onnx-community/whisper-large-v3-turbo'
 const TRANSLATOR = 'Xenova/nllb-200-distilled-600M'
 
 const loaded = new Map<string, Promise<unknown>>()
+
+/** Frees a model's memory. Hindi/Telugu with translation needs ~1.5 GB if two models stay loaded, which freezes phones, so only one lives at a time */
+async function release(model: string) {
+  const p = loaded.get(model)
+  loaded.delete(model)
+  try { await (await p as { dispose?: () => Promise<void> } | undefined)?.dispose?.() } catch { /* already gone */ }
+}
 
 /** Reports download progress across all of a model's files as one bar */
 function progress(stage: 'download' | 'download-translator') {
@@ -110,16 +117,23 @@ function tidy(text: string, target: Lang, sourceLength: number) {
 self.addEventListener('unhandledrejection', e => postMessage({ type: 'error', message: e.reason instanceof Error ? e.reason.message : String(e.reason) }))
 
 self.onmessage = async (e: MessageEvent<Request>) => {
-  const { audio, spoken, target, model } = e.data
+  const { audio, spoken, target, model, heavyOk } = e.data
   try {
     postMessage({ type: 'listening' })
-    const language = spoken === 'auto' ? await detect(await loadAsr(DETECTOR), audio) : spoken
+    let language: Lang
+    if (spoken === 'auto') { language = await detect(await loadAsr(DETECTOR), audio); if (!heavyOk && language !== 'en') await release(DETECTOR) }
+    else language = spoken
     postMessage({ type: 'detected', language })
-    const asr = await loadAsr(language === 'en' ? model : INDIAN)
+    if (!heavyOk && language !== 'en') throw new Error('Hindi and Telugu captions need more memory than this device has. Use a laptop or desktop, or caption English speech here.')
+    if (!heavyOk && language !== target) throw new Error('Translating captions needs more memory than this device has. Use a laptop or desktop.')
+    const wanted = language === 'en' ? model : INDIAN
+    if (loaded.has(DETECTOR) && wanted !== DETECTOR) await release(DETECTOR)
+    const asr = await loadAsr(wanted)
     postMessage({ type: 'listening' })
     const out = await asr(audio, { language: WHISPER[language], task: 'transcribe', return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 })
     let chunks = (out.chunks ?? [{ text: out.text, timestamp: [0, audio.length / 16000] }]).filter(c => c.text.trim())
     if (language !== target && chunks.length) {
+      await release(wanted) // the speech model is done: free it before the translator loads
       const translate = await loadTranslator()
       postMessage({ type: 'translating' })
       const done: Chunk[] = []
@@ -130,6 +144,7 @@ self.onmessage = async (e: MessageEvent<Request>) => {
         done.push({ ...c, text: tidy(out?.translation_text ?? text, target, text.length) })
       }
       chunks = done
+      await release(TRANSLATOR)
     }
     postMessage({ type: 'done', chunks, language })
   } catch (err) {
