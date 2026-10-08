@@ -17,7 +17,11 @@ const STYLES: { id: Style; name: string; hint: string }[] = [
 ]
 
 function loadLook(): Look {
-  try { return { ...DEFAULT_LOOK, ...JSON.parse(localStorage.getItem('lightup-look') || '{}') } } catch { return DEFAULT_LOOK }
+  try {
+    const look = { ...DEFAULT_LOOK, ...JSON.parse(localStorage.getItem('lightup-look') || '{}') }
+    // a saved brightness near zero (from an accidental swipe in an older version) would leave you in the dark
+    return { ...look, brightness: Math.max(look.brightness, 20) }
+  } catch { return DEFAULT_LOOK }
 }
 
 /** Opens a real camera, never our own virtual one (that would feed the picture back into itself) */
@@ -61,7 +65,7 @@ function Welcome({ onStart, busy, error }: { onStart: () => void; busy: boolean;
     <div className="welcome-glow" aria-hidden />
     <div className="halo" aria-hidden><span /></div>
     <h1>Light that looks <em>real</em>.</h1>
-    <p>Hold a glowing bulb in your hand, or switch on a studio ring light or soft window light. Rendered live, on your own computer.</p>
+    <p>Hold a glowing bulb in your hand, or switch on a studio ring light or soft window light. Rendered live, on your own device.</p>
     <button className="start" onClick={onStart} disabled={busy}>{busy ? 'Opening camera…' : 'Turn on camera'}</button>
     {error ? <small className="error">{error}</small> : <small>Your video never leaves this device.</small>}
   </main>
@@ -247,23 +251,13 @@ function Live({ stream, onSwitchCamera }: { stream: MediaStream; onSwitchCamera:
     else if (g === 'point') nextStyle(1)
   }
 
-  // touch or drag on the picture (except in bulb mode, where that places the bulb): swipe sideways to change the light, up or down for brightness
-  const swipe = useRef<{ x: number; y: number; b: number; moved: boolean } | null>(null)
-  const stageDown = (e: React.PointerEvent) => { if (look.style === 'bulb') return placeBulb(e); swipe.current = { x: e.clientX, y: e.clientY, b: look.brightness, moved: false } }
-  const stageMove = (e: React.PointerEvent) => {
-    if (look.style === 'bulb') return placeBulb(e)
-    const s = swipe.current, dx = s ? e.clientX - s.x : 0, dy = s ? e.clientY - s.y : 0
-    if (s && Math.abs(dy) > 24 && Math.abs(dy) > Math.abs(dx)) { s.moved = true; setBrightness(s.b - dy / 3) }
-  }
-  const stageUp = (e: React.PointerEvent) => {
-    const s = swipe.current; swipe.current = null
-    if (!s || s.moved) return
-    const dx = e.clientX - s.x
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) nextStyle(dx < 0 ? 1 : -1)
-  }
+  // touching the picture only places the bulb (bulb mode). Swiping used to change the light and brightness, but a casual touch on a phone
+  // could drop the brightness to zero (and that is remembered), so the settings sheet is the one place to change them.
+  const stageDown = (e: React.PointerEvent) => { if (look.style === 'bulb') placeBulb(e) }
+  const stageMove = (e: React.PointerEvent) => { if (look.style === 'bulb') placeBulb(e) }
 
   return <div className={`live ${idle && !open ? 'idle' : ''}`}>
-    <div className={`live-stage ${look.style === 'bulb' ? 'placeable' : ''}`} ref={stage} onPointerDown={stageDown} onPointerMove={stageMove} onPointerUp={stageUp} onPointerCancel={() => { swipe.current = null }}>
+    <div className={`live-stage ${look.style === 'bulb' ? 'placeable' : ''}`} ref={stage} onPointerDown={stageDown} onPointerMove={stageMove}>
       <video ref={video} className={status === 'plain' ? 'plain' : ''} muted playsInline />
       <canvas ref={canvas} className={`gpu-canvas depth-canvas ${status === 'ready' ? 'active' : ''}`} />
       <canvas ref={overlay} className="ring-overlay" />

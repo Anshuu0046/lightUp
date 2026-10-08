@@ -14,7 +14,7 @@ Live lighting needs a GPU with WebGPU `shader-f16` support (most GPUs from the l
 - **1** Bulb: hold up your hand to carry a glowing bulb, or click to place it. **2** Ring light. **3** Window. **4** Natural. **F** full screen.
 - Brightness, colour (warm white through daylight to blue, or an RGB colour), **Auto light**, **Soft skin** and eye catchlights. Auto light measures the skin on your face and keeps it evenly lit in any room.
 - **Background light:** an RGB lamp on the wall behind you (seven colours or a slow rainbow), with its brightness and position. It tints the wall and rims your hair while your face keeps its own light.
-- **Hand gestures** (hold the sign for half a second): ✌️ photo after a 3-second countdown, 👍 start or stop recording, ☝️ next light, 👌 then move your hand up or down for brightness. On a touch screen, swipe sideways to change the light and up or down for brightness (except in bulb mode, where a touch places the bulb).
+- **Hand gestures** (hold the sign for half a second): ✌️ photo after a 3-second countdown, 👍 start or stop recording, ☝️ next light, 👌 then move your hand up or down for brightness.
 - **Use in Zoom, Teams & OBS** sends the lit picture to Light Up Camera. **Photo** and **Record** save to Downloads.
 
 ## Edit a video

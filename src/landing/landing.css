@@ -177,6 +177,8 @@
   .chip:nth-of-type(n + 5) { display: none }
 }
 @media (max-width: 640px) {
+  /* the glowing ring passes behind the intro on a phone: keep the words readable over it */
+  .hero-sub { text-shadow: 0 0 6px #000, 0 0 18px #000, 0 0 30px rgba(0, 0, 0, .8); color: #d6d0dc }
   .lnav-end .lbtn { padding: 8px 13px; font-size: 12.5px }
   .wheel-wrap { --w: min(58vw, 40vh * 400 / 520); --r: calc(var(--w) * 1.25) }
   .mock { aspect-ratio: 3 / 2.4 }

@@ -59,8 +59,14 @@ const SUBSURFACE_GAIN = 0.9;
 const BACK_REACH = 0.6;
 const BACK_HAZE = 0.02;
 const RIM_GAIN = 2.2;
-/** with a lamp on, the room's own light on the wall drops this much, so the colour reads (creators film RGB looks in dim rooms) */
-const BACK_DIM = 0.6;
+/** the wall's colour: how far it moves from its own colour to the lamp's, how bright it stays, how far across the frame it reaches, and the soft glow added on top */
+const BACK_TINT = 0.85;
+const BACK_GAIN = 1.15;
+const BACK_TINT_REACH = 1.4;
+const BACK_GLOW = 0.2;
+/** how much a near pixel is protected from the wall colour: everything near, and extra for skin */
+const BACK_PROTECT = 0.25;
+const BACK_PROTECT_SKIN = 0.8;
 
 /** soft skin: average nearby pixels that look alike, so pores and blemishes soften but edges (eyes, lips, beard) stay sharp */
 const SMOOTH_RING = [0, 1, 2, 3, 4, 5, 6, 7] as const;
@@ -539,9 +545,12 @@ export const relightFragment = tgpu.fragmentFn({
   const highlight = lobe * (SPECULAR_F0 + (1 - SPECULAR_F0) * grazing);
 
   const back = relightLayout.$.params.backColor;
-  // a wide, soft hand-over from wall to person: on phones the depth guess around the head is rough, and a narrow one shows as a hard-edged blob of untinted wall
-  const far = 1 - std.smoothstep(0.22, 0.78, surface.w);
-  let lit = albedo * AMBIENT_FILL * (relightLayout.$.params.exposure * occlusion * (1 - far * std.saturate(back.w * 2) * BACK_DIM));
+  // how much of this pixel is "you" rather than the wall: you and your skin keep their own light. The depth guess is rough
+  // (on phones it sometimes calls the ceiling above your head near), so only near, skin-coloured pixels are fully protected
+  const nearYou = std.smoothstep(0.45, 0.85, surface.w);
+  const skinTone = std.saturate((cameraColor.x - cameraColor.z) * 5 - 0.15) * std.smoothstep(0.12, 0.3, cameraColor.x);
+  const wallness = 1 - std.saturate(nearYou * BACK_PROTECT + nearYou * skinTone * BACK_PROTECT_SKIN);
+  let lit = albedo * AMBIENT_FILL * (relightLayout.$.params.exposure * occlusion);
   lit += albedo * tint * (lambert * falloff * shadow * relightLayout.$.params.intensity);
   lit +=
     tint *
@@ -556,11 +565,16 @@ export const relightFragment = tgpu.fragmentFn({
   const sameDepth = std.saturate(1 - (relightLayout.$.params.lightZ - surfaceZ(surface.w)) / 0.6);
   const skin = std.saturate(cameraColor.x - cameraColor.z) * 3;
   lit += albedo * d.vec3f(1, 0.38, 0.2) * tint * (nearBulb * sameDepth * std.min(skin, d.f32(1)) * relightLayout.$.params.bulb * relightLayout.$.params.intensity * SUBSURFACE_GAIN);
-  // a coloured lamp behind you: a pool of colour on the wall, and a bright edge where your outline turns toward it
+  // a coloured lamp behind you: the wall takes the lamp's colour (kept at the wall's own brightness, so a white wall turns properly coloured
+  // instead of washing out to white), and a bright edge appears where your outline turns toward it
   if (back.w > 0) {
     const reachBack = std.length(wuv - relightLayout.$.params.backPosition) / BACK_REACH;
     const pool = 1 / (1 + reachBack * reachBack);
-    lit += (albedo + BACK_HAZE) * back.xyz * (far * pool * back.w);
+    const wall = std.saturate(pool * back.w * BACK_TINT_REACH) * wallness;
+    const brightness = std.dot(lit, d.vec3f(0.2126, 0.7152, 0.0722));
+    const dyed = (d.vec3f(1, 1, 1) * (1 - BACK_TINT) + back.xyz * BACK_TINT) * (brightness * BACK_GAIN) + back.xyz * BACK_HAZE;
+    lit = std.mix(lit, dyed, wall);
+    lit += (albedo + BACK_HAZE) * back.xyz * (wallness * pool * back.w * BACK_GLOW);
     const facing = std.saturate(std.dot(std.normalize(normal.xy + d.vec2f(0.0001)), std.normalize(relightLayout.$.params.backPosition - wuv + d.vec2f(0.0001))));
     const edge = std.pow(1 - std.saturate(normal.z), d.f32(1.5));
     // only well in front of the wall, so the soft depth edge around your outline doesn't glow on the wall itself
