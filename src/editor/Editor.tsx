@@ -16,7 +16,9 @@ import { CloudDialog } from '../cloud/CloudDialog'
 import { cloudEnabled, track } from '../cloud/supabase'
 import { DEFAULT_DUCKING } from './audio'
 import { useHistory } from './history'
-import { currentId, deleteProject, forgetUnusedFiles, importFile, isEmpty, listProjects, loadProject, renameProject, saveProject, setCurrentId } from './media'
+import { denoise, type Strength } from './denoise'
+import { encodeWav } from './audio'
+import { currentId, fileOf, deleteProject, forgetUnusedFiles, importFile, isEmpty, listProjects, loadProject, renameProject, saveProject, setCurrentId } from './media'
 import { ProjectsDialog } from './ProjectsDialog'
 import { Player } from './player'
 import { Timeline } from './Timeline'
@@ -182,6 +184,26 @@ export default function Editor() {
     h.commit({ type: 'addClip', clip: c, fit: 'near' })
     setSelected(c.id)
   }
+  /** Writes a noise-free copy of the clip's sound. A video keeps its picture and gets the clean sound on an audio track; an audio clip is swapped for it. */
+  const cleanSound = async (strength: Strength) => {
+    if (!clip || !asset) return
+    const source = fileOf(asset.id)
+    if (!source) return
+    try {
+      setToast('Cleaning up the sound… this can take a moment.')
+      const buf = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(await source.arrayBuffer())
+      const cleaned = await denoise(buf, strength)
+      const made = await importFile(new File([encodeWav(cleaned)], `${asset.name} (clean).wav`, { type: 'audio/wav' }))
+      h.commit({ type: 'addAsset', asset: made })
+      if (asset.kind === 'audio') { h.commit({ type: 'updateClip', id: clip.id, patch: { assetId: made.id } }); setToast('Background noise removed.'); return }
+      const end = clip.start + clipLength(clip)
+      const track = project.tracks.filter(t => t.kind === 'audio').sort((a, b) => (a.id === 'a2' ? -1 : b.id === 'a2' ? 1 : 0)).find(t => !project.clips.some(c => c.trackId === t.id && c.start < end && c.start + clipLength(c) > clip.start))
+      if (!track) { setToast('No free audio track at this spot. Add an audio track first.'); return }
+      h.commit({ type: 'updateClip', id: clip.id, patch: { muted: true } })
+      h.commit({ type: 'addClip', clip: { id: uid(), assetId: made.id, trackId: track.id, start: clip.start, in: clip.in, out: clip.out, speed: clip.speed, volume: clip.volume, opacity: 1, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0 }, audio: clip.audio, reverse: clip.reverse } })
+      setToast('Background noise removed. The clean sound is on its own audio track.')
+    } catch { setToast('Couldn’t clean this sound.') }
+  }
   const importLut = async (file: File) => {
     if (!clip) return
     try {
@@ -294,7 +316,7 @@ export default function Editor() {
 
       <aside className={`ed-side inspector ${panel === 'edit' ? 'show' : ''}`}>
         {clip && (asset || clip.text) ? <>
-          <Inspector key={clip.id} project={project} clip={clip} time={time} onSeek={seek} onLut={importLut} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} onRefine={() => setRefining(true)} />
+          <Inspector key={clip.id} project={project} clip={clip} time={time} onSeek={seek} onLut={importLut} onDenoise={cleanSound} asset={asset} edit={h} onSplit={split} onDuplicate={duplicate} onRemove={remove} onError={setToast} onDetach={detach} onRefine={() => setRefining(true)} />
         </> : <div className="ed-nothing"><b>Nothing selected</b><small>Tap a clip on the timeline, then open this tab to adjust it, give it a look, or add effects.</small></div>}
       </aside>
     </div>

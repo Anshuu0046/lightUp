@@ -5,6 +5,7 @@ import { type Asset, type Clip, clipLength, collides, type Project } from './mod
 import { MOTIONS, motionKeys, type Pose, poseAt, setKey, withPose } from './keyframes'
 import { applyLut, BUILTIN_LUTS, lutData, setCustomLuts } from './lut'
 import { EYE_COLORS, EYE_FX, type EyeKind } from './eyes'
+import type { Strength } from './denoise'
 import { type Fx, type Grade, NO_FX, NO_GRADE, PRESETS, thumbFilter } from './looks'
 import { type ClipAudio, NO_AUDIO } from './audio'
 import { DEFAULT_LIGHTING, type Lighting, relightReady } from './relight'
@@ -18,7 +19,7 @@ type Edit = {
   commit: (a: { type: 'updateClip'; id: string; patch: Partial<Clip> }) => void
 }
 
-type Props = { project: Project; clip: Clip; asset?: Asset; time: number; onSeek: (t: number) => void; onLut: (file: File) => void; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void; onDetach?: () => void; onRefine?: () => void }
+type Props = { project: Project; clip: Clip; asset?: Asset; time: number; onSeek: (t: number) => void; onLut: (file: File) => void; onDenoise: (s: Strength) => Promise<void>; edit: Edit; onSplit: () => void; onDuplicate: () => void; onRemove: () => void; onError: (m: string) => void; onDetach?: () => void; onRefine?: () => void }
 
 /** A slider whose whole drag is one undo step */
 function Range({ label, value, min, max, unit = '', step = 1, edit, onChange }: { label: string; value: number; min: number; max: number; unit?: string; step?: number; edit: Edit; onChange: (v: number) => void }) {
@@ -31,7 +32,7 @@ function Toggle({ label, hint, on, onChange }: { label: string; hint?: string; o
   return <label className="ed-toggle"><span>{label}{hint && <small>{hint}</small>}</span><input type="checkbox" checked={on} onChange={e => onChange(e.target.checked)} /><i /></label>
 }
 
-export function Inspector({ project, clip, asset, time, onSeek, onLut, edit, onSplit, onDuplicate, onRemove, onError, onDetach, onRefine }: Props) {
+export function Inspector({ project, clip, asset, time, onSeek, onLut, onDenoise, edit, onSplit, onDuplicate, onRemove, onError, onDetach, onRefine }: Props) {
   const visual = !asset || asset.kind !== 'audio'
   const text = clip.text
   const tabs = text ? (['text', 'adjust', 'fx'] as const) : (['adjust', 'look', 'light', 'fx'] as const)
@@ -44,6 +45,7 @@ export function Inspector({ project, clip, asset, time, onSeek, onLut, edit, onS
     if (collides(project, { ...clip, ...patch })) { onError('That would overlap the next clip. Move it first.'); return }
     edit.commit({ type: 'updateClip', id: clip.id, patch })
   }
+  const [cleaning, setCleaning] = useState(false)
   const pct = (v: number) => Math.round(v * 100)
   setCustomLuts(project.luts)
   const pose = poseAt(clip, time)
@@ -104,6 +106,10 @@ export function Inspector({ project, clip, asset, time, onSeek, onLut, edit, onS
           <Range label="Sound fade in" value={sound.fadeIn} min={0} max={5} step={0.1} unit="s" edit={edit} onChange={v => setSound({ fadeIn: v })} />
           <Range label="Sound fade out" value={sound.fadeOut} min={0} max={5} step={0.1} unit="s" edit={edit} onChange={v => setSound({ fadeOut: v })} />
           <Toggle label="Enhance voice" hint="Clearer, fuller speech: cuts rumble, lifts presence, evens the level" on={sound.enhance} onChange={v => commit({ audio: { ...sound, enhance: v } })} />
+          <div className="ed-card"><b className="ed-card-title">Remove background noise</b>
+            <small className="ed-note">Hiss, fans, traffic and room hum are taken out of the sound. Your voice stays. The clean sound is added as a new clip.</small>
+            <div className="ed-chips" style={{ marginTop: 8 }}>{(['gentle', 'normal', 'strong'] as const).map(k => <button key={k} disabled={cleaning} onClick={async () => { setCleaning(true); try { await onDenoise(k) } finally { setCleaning(false) } }}>{cleaning ? 'Cleaning…' : k[0].toUpperCase() + k.slice(1)}</button>)}</div>
+          </div>
           <Toggle label="Remove audio" hint="Silences this clip. Switch it off to bring the sound back." on={!!clip.muted} onChange={v => commit({ muted: v })} />
           {onVisual && asset.kind === 'video' && onDetach && <button className="ed-btn block" onClick={onDetach}>Detach audio to its own track</button>}
         </>}
