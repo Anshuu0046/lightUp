@@ -147,7 +147,7 @@ export default function Landing() {
         <div className="hero-copy">
           <p className="eyebrow">Creator studio · free · on your device</p>
           <h1><span className="dim">Look like you own a <em>studio.</em></span><span className="lit" aria-hidden>Look like you own a <em>studio.</em></span></h1>
-          <p className="hero-sub">A ring light, a window and a bulb you hold in your hand, drawn into your camera live from a depth map of your face. Then cut, caption and post, in English, हिन्दी or తెలుగు.</p>
+          <p className="hero-sub">A ring light, a window and a bulb you hold in your hand, drawn into your camera live from a depth map of your face. Then cut it, add keyframes, filters and effects, and export it for Reels, Shorts and TikTok.</p>
           <div className="hero-cta">
             <a className="lbtn mag" href="#/live">Turn on the light <ArrowRight size={16} /></a>
             <a className="lbtn ghost mag" href="#/edit">Edit a video</a>
@@ -246,7 +246,7 @@ const LIGHTS: { id: 'ring' | 'window' | 'bulb'; name: string; text: string }[] =
   { id: 'bulb', name: 'Bulb in your hand', text: 'Hold up your hand and a warm bulb appears in it. It follows your palm, glows through your fingers and casts real shadows.' },
 ]
 
-const RIBBON = ['Reels', 'Shorts', 'TikTok', 'Live streams', 'Zoom', 'Teams', 'OBS', 'Podcasts', 'Vlogs', 'English', 'हिन्दी', 'తెలుగు']
+const RIBBON = ['Reels', 'Shorts', 'TikTok', 'Live streams', 'Zoom', 'Teams', 'OBS', 'Podcasts', 'Vlogs', 'Keyframes', 'LUTs', 'Teleprompter']
 const CHIPS = ['Teleprompter', 'Music ducks under your voice', 'Remove the background', 'Relight any clip', '12 looks', 'GIFs & stickers', '1080p MP4']
 const CHIP_DEPTH = [1.4, 0.7, 1.1, 1.6, 0.6, 1.2, 0.9]
 const CHIP_POS: React.CSSProperties[] = [{ left: '-4%', top: '8%' }, { right: '-3%', top: '14%' }, { left: '-6%', top: '46%' }, { right: '-5%', top: '50%' }, { left: '6%', bottom: '-4%' }, { right: '10%', bottom: '-6%' }, { left: '30%', bottom: '-8%' }]

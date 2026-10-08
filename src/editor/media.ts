@@ -131,7 +131,8 @@ export async function loadProject(id: string): Promise<Project | undefined> {
       const f = await tx<Blob>('readonly', s => s.get('file:' + a.id))
       if (f) { remember(a.id, f); if (a.kind === 'image') a.thumb = urlOf(a.id) }
     }
-    return { ...p, assets: p.assets.filter(a => files.has(a.id)), clips: p.clips.filter(c => files.has(c.assetId)) }
+    // text clips have no media file behind them, so they stay
+    return { ...p, assets: p.assets.filter(a => files.has(a.id)), clips: p.clips.filter(c => c.text || files.has(c.assetId)) }
   } catch { return undefined }
 }
 

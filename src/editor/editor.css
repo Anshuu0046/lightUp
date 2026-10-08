@@ -1,4 +1,4 @@
-.editor { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #0a0a0e; color: var(--ink); --row-v: 60px; --row-a: 40px; --panel: #111117; --raised: #17171f }
+.editor { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #0a0a0e; color: var(--ink); --row-v: 46px; --row-a: 32px; --panel: #111117; --raised: #17171f }
 .editor button:disabled { opacity: .4; cursor: default }
 
 /* ---------- top bar ---------- */
@@ -129,7 +129,7 @@
 .ed-tools > * { flex: none }
 .ed-zoom { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted) }
 .ed-zoom input { width: 120px }
-.timeline { flex: none; display: flex; max-height: 42vh; overflow-y: auto; background: #0d0d12; border-top: 1px solid var(--line); user-select: none; -webkit-user-select: none }
+.timeline { flex: none; display: flex; max-height: 36vh; overflow-y: auto; background: #0d0d12; border-top: 1px solid var(--line); user-select: none; -webkit-user-select: none }
 .tl-heads { flex: none; background: var(--panel); border-right: 1px solid var(--line); position: sticky; left: 0; z-index: 3 }
 .tl-ruler-spacer { height: 26px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--warm); border-bottom: 1px solid var(--line) }
 .tl-head { display: flex; align-items: center; gap: 2px; padding: 0 6px 0 10px; border-bottom: 1px solid var(--line); font-size: 11.5px; font-weight: 600; color: var(--muted) }
